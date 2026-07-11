@@ -7,6 +7,32 @@
 
 ---
 
+## 2026.07.11-2
+
+### Fixed — Build: syntax error ใน `fmtPrice()`
+
+- `[src/lib/utils.js]` ลบ comma เกินออกจาก template literal บรรทัดที่ 7
+  สาเหตุ: `${(val / 1_000).toFixed(0),}` มี `,` หลัง expression ทำให้ Rollup parse ไม่ผ่าน
+  → Cloudflare Pages build failed ทันที แก้เป็น `${(val / 1_000).toFixed(0)}`
+
+### Fixed — Runtime: `permission denied for table assets`
+
+- `[schema]` migration `0008_grant_anon_select.sql` — GRANT SELECT ให้ `anon` role
+  สาเหตุ: TPIS Web ใช้ `VITE_SUPABASE_ANON_KEY` (public key) แต่ขาด table-level GRANT
+  RLS policy "public read" มีอยู่แล้วแต่ยังไม่พอ — PostgreSQL ตรวจ GRANT ก่อน RLS เสมอ
+  อ้างอิง: เหมือน migration 0002 ที่แก้ปัญหาเดียวกันสำหรับ `service_role`
+  Tables ที่ grant: `assets`, `asset_bid_rounds`, `asset_images`, `asset_history`,
+  `parcels`, `asset_parcels`, `crawler_runs`, `crawler_run_details`, `landsmaps_sessions`
+  Views ที่ grant: `assets_map`, `province_summary`, `auction_today`
+  เพิ่ม `alter default privileges` กัน table ใหม่ในอนาคตพังซ้ำ
+
+### To-do (ยังไม่ทำ)
+
+- `[admin]` ระบบ Login สำหรับ Admin page — ปัจจุบัน Admin page เปิดสาธารณะ
+  แผน: Supabase Auth + protected route + ตรวจ `users.role = 'admin'` ก่อน render
+
+---
+
 ## 2026.07.11-1
 
 ### Added — Phase 2: Web Frontend (React + Vite)
