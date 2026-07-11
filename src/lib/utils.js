@@ -4,7 +4,7 @@ import { ASSET_TYPE_LABELS, ISSALE_STATUS } from './constants.js'
 export function fmtPrice(val) {
   if (!val || val <= 0) return '—'
   if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)} ล้าน ฿`
-  if (val >= 100_000)   return `${(val / 1_000).toFixed(0),} K ฿`
+  if (val >= 100_000)   return `${(val / 1_000).toFixed(0)} K ฿`
   return `${Number(val).toLocaleString()} ฿`
 }
 
