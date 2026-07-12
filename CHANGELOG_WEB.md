@@ -7,6 +7,34 @@
 
 ---
 
+## 2026.07.12-2
+
+### Fixed — Detail Page: 5 จุดที่แก้จากการเปรียบเทียบกับต้นฉบับ LED
+
+- `[DetailPage]` **ราคาแสดงเป็นเลขเต็ม** — เพิ่ม `fmtPriceFull()` ใน `utils.js`
+  ใช้แทน `fmtPrice()` ในทุกจุดของ Detail page (ราคาประเมิน, ยอดหนี้, มัดจำ, ราคาที่ดิน)
+  ผลลัพธ์: `772,000 ฿` แทน `772 K ฿`
+
+- `[DetailPage]` **ลบปุ่ม "ดูข้อมูลต้นฉบับบน LED"** ออกจาก sidebar
+  เหตุผล: ไม่จำเป็นต้องอ้างอิงกลับไป LED เพราะ TPIS มีข้อมูลครบแล้ว
+
+- `[DetailPage]` **ลบราคาออกจากตารางนัดประมูล** — ไม่ดึง `asset_price` จาก `asset_bid_rounds`
+  เหตุผล: `asset_price` ใน bid rounds คือราคาประเมินของเจ้าพนักงาน ซึ่งแสดงอยู่ใน
+  panel "วิเคราะห์ราคา" แล้ว — แสดงซ้ำทำให้สับสน
+  ตารางนัดประมูลแสดงเฉพาะ: เลขนัด | วันที่ | สถานะ
+
+- `[DetailPage]` **Lightbox popup สำหรับรูปภาพ** — กดรูปแล้วขึ้น overlay แทนเปิด tab ใหม่
+  - รูปหลัก (`url_picture`): คลิกที่รูปเปิด lightbox
+  - รูปย่อย (`url_map`, `url_mapjot`): เปลี่ยนจาก `<a target="_blank">` → คลิก lightbox
+  - กด Escape หรือคลิกนอกรูปเพื่อปิด
+  - เพิ่ม component `<Lightbox>` + `<Thumb>` + CSS class `.lightbox-overlay`, `.lightbox-img`, `.img-thumb`
+
+- `[DetailPage]` **แสดง bid rounds เฉพาะที่มีข้อมูลจริง** — filter `r.bid_date != null`
+  เหตุผล: `asset_bid_rounds` อาจมี round 7, 8 ที่ LED ส่ง issale code มาแต่ไม่มีวันนัด
+  หลัง filter: แสดงเฉพาะ round ที่เคยมีการนัดประมูลจริง พร้อมแสดงจำนวนนัดที่มุมขวาของ panel header
+
+---
+
 ## 2026.07.12-1
 
 ### Changed — SearchPage: Redesign ตาม Frontend Design Specification v1

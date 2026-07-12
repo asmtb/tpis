@@ -110,3 +110,9 @@ export function fmtNum(n) {
   if (n == null) return '—'
   return Number(n).toLocaleString()
 }
+
+/** ราคาเต็ม พร้อม comma เช่น "772,000 ฿" (ใช้ใน Detail page) */
+export function fmtPriceFull(val) {
+  if (!val || val <= 0) return '—'
+  return `${Math.round(val).toLocaleString()} ฿`
+}

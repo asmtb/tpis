@@ -798,3 +798,39 @@ input, select, textarea { font-family: inherit; }
   .navbar-search { display: none; }
   .hero-stats { grid-template-columns: 1fr 1fr; padding: 10px 12px; }
 }
+
+/* ════════════════════════════════════════════════
+   LIGHTBOX
+════════════════════════════════════════════════ */
+.lightbox-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex; align-items: center; justify-content: center;
+  cursor: zoom-out;
+  animation: lb-fade 0.18s ease;
+}
+@keyframes lb-fade { from { opacity: 0 } to { opacity: 1 } }
+.lightbox-img {
+  max-width: 90vw; max-height: 88vh;
+  object-fit: contain;
+  border-radius: var(--r);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  cursor: default;
+  animation: lb-scale 0.18s ease;
+}
+@keyframes lb-scale { from { transform: scale(0.94) } to { transform: scale(1) } }
+.lightbox-close {
+  position: absolute; top: 20px; right: 24px;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,0.15); border: none;
+  color: #fff; font-size: 1.2rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.lightbox-close:hover { background: rgba(255,255,255,0.28); }
+.img-thumb {
+  cursor: zoom-in; border-radius: var(--r-sm);
+  border: 1.5px solid var(--border);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.img-thumb:hover { border-color: var(--accent); box-shadow: var(--sh-sm); }
