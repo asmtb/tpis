@@ -7,6 +7,96 @@
 
 ---
 
+## 2026.07.12-1
+
+### Changed — SearchPage: Redesign ตาม Frontend Design Specification v1
+
+ปรับหน้าหลัก (SearchPage) ใหม่ทั้งหมดตาม Design Spec — ทั้ง UI, UX, และ layout
+
+#### Design System (`src/index.css`)
+
+- `[design]` Background เปลี่ยนจาก warm stone `#F5F4F0` → cool blue `#F6F8FC`
+- `[design]` Border radius cards: 12px → 16px, เพิ่ม `--r-xl: 20px`
+- `[design]` Shadow เปลี่ยนเป็น blue-tinted: `rgba(30,58,138,...)` แทน `rgba(0,0,0,...)`
+- `[design]` เพิ่ม accent orange `#F97316` แทนที่ `#C2410C` (ใช้สำหรับ hot deal, upcoming)
+- `[design]` Success color: `#10B981`, Danger: `#EF4444` ตาม spec
+- `[design]` เพิ่ม `.skel` skeleton loading animation
+- `[design]` เพิ่ม CSS classes ใหม่: `.hero-stat`, `.chip`, `.filter-section`, `.score-badge`, `.ai-summary`
+
+#### Navbar (`src/components/Navbar.jsx`)
+
+- `[Navbar]` เพิ่ม glass effect: `backdrop-filter: blur(16px) saturate(180%)` + semi-transparent bg
+- `[Navbar]` เพิ่ม Global Search bar — `form` + `input` ค้นหาโฉนด/จังหวัด/เจ้าของ
+- `[Navbar]` เมื่อกด Enter ใน search bar → navigate ไป `/?q=...` แล้ว SearchPage รับ query
+
+#### HeroStats (`src/components/HeroStats.jsx`) — ใหม่
+
+- `[HeroStats]` 4 animated KPI cards แสดงข้อมูล real-time จาก Supabase
+  - ทรัพย์ทั้งหมด (`assets` count)
+  - ประมูลวันนี้ (`asset_bid_rounds` where `bid_date = today AND issale_code = '0'`)
+  - จังหวัดที่มีทรัพย์ (`province_summary` distinct count)
+  - รับประมูลอยู่ (`assets` where `is_closed = false`)
+- `[HeroStats]` Animated counter: ease-out cubic จาก 0 → target ใน 1.2 วินาที
+- `[HeroStats]` แสดงเฉพาะ SearchPage บนสุดก่อน 3-panel
+
+#### FilterChips (`src/components/FilterChips.jsx`) — ใหม่
+
+- `[FilterChips]` Quick filter chips 6 ตัว แสดงระหว่าง HeroStats กับ 3-panel
+  - 🔥 Hot Deal (ราคา < 3M), 🏠 บ้าน/อาคาร, 🌾 ที่ดิน, 🏢 ห้องชุด, 📅 เปิดประมูล, ✅ ปิดแล้ว
+- `[FilterChips]` Toggle ได้ — กด chip เดิมซ้ำ = ยกเลิก filter กลับไป default
+- `[FilterChips]` กด chip → set filter + trigger search ทันที ไม่ต้องกดปุ่มค้นหา
+
+#### SearchFilters (`src/components/SearchFilters.jsx`) — Redesign
+
+- `[SearchFilters]` เปลี่ยน layout เป็น collapsible sections แต่ละ section มี header toggle
+- `[SearchFilters]` **Cascading Province → District dropdown** โดยใช้ `th_provinces` + `th_districts` (จาก migration 0009)
+  - เลือกจังหวัด → fetch `th_provinces` เพื่อหา kongvut id → fetch `th_districts` ตาม `province_id`
+  - District dropdown ปรากฏก็ต่อเมื่อเลือกจังหวัดแล้วเท่านั้น
+  - Loading state แสดงขณะ fetch districts
+- `[SearchFilters]` เพิ่ม price preset buttons: < 1M / < 3M / < 5M / < 10M (toggle ได้)
+- `[SearchFilters]` District ใช้ `.eq('ampur', name_th)` แทน `.ilike()` เพราะชื่อตรงกับ `assets.ampur`
+
+#### PropertyCard (`src/components/PropertyCard.jsx`) — Redesign
+
+- `[PropertyCard]` เพิ่ม **Investment Score badge** (mock, deterministic จาก `id`)
+  - ค่า 55–95 คำนวณจาก `(id * 2654435761) >>> 0) % 41 + 55`
+  - สีตามระดับ: สีเขียว (≥78) / ส้ม (≥65) / เทา (<65)
+  - แสดง star rating ★★★★★ ตามช่วงคะแนน
+- `[PropertyCard]` เพิ่ม **AI Summary** (mock) 1 บรรทัดด้านล่างใต้พื้นที่
+  - ข้อความต่างกันตามช่วงคะแนน: "ทำเลดี · ราคาน่าสนใจ" / "น่าพิจารณา" / "ควรประเมินความเสี่ยง"
+- `[PropertyCard]` Card hover: `transform: translateY(-2px)` + shadow + border accent
+- `[PropertyCard]` type badge สีใหม่: ที่ดิน=เขียว / ห้องชุด=น้ำเงิน / บ้าน=ส้ม
+
+#### SearchPage (`src/pages/SearchPage.jsx`) — Restructure
+
+- `[SearchPage]` Layout ใหม่: `search-page` → `search-top` (hero+chips) + `search-panels` (3-panel)
+  - 3-panel: sidebar 228px | results flex-1 | map 36%
+- `[SearchPage]` รองรับ **global search** จาก navbar URL param `?q=` — query `deedno_raw`, `city`, `ownername`
+- `[SearchPage]` filter `ampur` เปลี่ยนจาก `.ilike()` → `.eq()` เพื่อให้ตรงกับ dropdown ที่เลือก
+- `[SearchPage]` เพิ่ม `led_province_id` ใน filter state เพื่อส่งต่อให้ SearchFilters fetch districts
+- `[SearchPage]` chips handler: set filter + trigger load โดยไม่รีเซ็ต filter อื่น
+
+### Added — Schema: ข้อมูลภูมิศาสตร์ไทย
+
+- `[schema]` migration `0009_thai_geo_tables.sql` — 3 ตารางพร้อมข้อมูลครบ
+  ที่มา: [kongvut/thai-province-data](https://github.com/kongvut/thai-province-data) (MIT License)
+  - `th_provinces`: 77 จังหวัด + `led_province_id` สำหรับ JOIN กับ `assets`
+  - `th_districts`: 930 อำเภอ FK → th_provinces
+  - `th_subdistricts`: 7,452 ตำบล FK → th_districts + zip_code
+  - GIN index บน `name_th` ของ districts และ subdistricts รองรับ autocomplete ในอนาคต
+  - RLS public read + GRANT SELECT to anon ครบทุกตาราง
+
+### To-do (ยังไม่ทำ)
+
+- `[admin]` ระบบ Login สำหรับ Admin page — Supabase Auth + protected route + `users.role = 'admin'`
+- `[detail]` Lightbox popup เมื่อกดรูปภาพ (แทนการเปิด tab ใหม่)
+- `[detail]` แก้ราคาแสดงเป็นเลขเต็ม + ลบ asset_price ออกจากตารางนัดประมูล
+- `[search]` Subdistrict (ตำบล) dropdown ระดับที่ 3
+- `[search]` Investment Score จาก AI engine จริง (ปัจจุบัน mock)
+- `[search]` AI Summary จาก Claude API (ปัจจุบัน mock)
+
+---
+
 ## 2026.07.11-2
 
 ### Fixed — Build: syntax error ใน `fmtPrice()`
@@ -20,7 +110,6 @@
 - `[schema]` migration `0008_grant_anon_select.sql` — GRANT SELECT ให้ `anon` role
   สาเหตุ: TPIS Web ใช้ `VITE_SUPABASE_ANON_KEY` (public key) แต่ขาด table-level GRANT
   RLS policy "public read" มีอยู่แล้วแต่ยังไม่พอ — PostgreSQL ตรวจ GRANT ก่อน RLS เสมอ
-  อ้างอิง: เหมือน migration 0002 ที่แก้ปัญหาเดียวกันสำหรับ `service_role`
   Tables ที่ grant: `assets`, `asset_bid_rounds`, `asset_images`, `asset_history`,
   `parcels`, `asset_parcels`, `crawler_runs`, `crawler_run_details`, `landsmaps_sessions`
   Views ที่ grant: `assets_map`, `province_summary`, `auction_today`
@@ -28,8 +117,7 @@
 
 ### To-do (ยังไม่ทำ)
 
-- `[admin]` ระบบ Login สำหรับ Admin page — ปัจจุบัน Admin page เปิดสาธารณะ
-  แผน: Supabase Auth + protected route + ตรวจ `users.role = 'admin'` ก่อน render
+- `[admin]` ระบบ Login สำหรับ Admin page — Supabase Auth + protected route + `users.role = 'admin'`
 
 ---
 
@@ -41,70 +129,19 @@
 
 **Stack:** React 18 + Vite, React Router v6, Supabase JS, react-leaflet, Recharts
 **Deploy target:** Cloudflare Pages
-**Map:** Leaflet/OSM (primary, ฟรี) + Google Maps skeleton (รอ API key)
-
-#### Design System (`src/index.css`)
-- `[design]` CSS custom properties ทั้งระบบ — palette อิง warm stone (`#F5F4F0`) + deep navy (`#1A3A5C`) + auction orange (`#C2410C`)
-- `[design]` Font: Sarabun (Thai + Latin) + IBM Plex Mono (data/codes)
-- `[design]` Component classes ทั้งหมดนิยามในไฟล์เดียว: navbar, cards, filters, badges, panels, charts, admin table
+**Map:** Leaflet/OSM (primary) + Google Maps skeleton (รอ API key)
 
 #### Pages
-
-- `[SearchPage]` หน้าหลัก 3-panel layout: filter sidebar (228px) + results grid + Leaflet map (400px) live พร้อมกัน
-  - Filter: จังหวัด (77 จังหวัด), อำเภอ, ประเภท, ราคา (พร้อม preset < 1M/3M/5M), สถานะ
-  - Sort: ล่าสุด / ราคาต่ำสุด / ราคาสูงสุด / วันที่ใหม่สุด
-  - Pagination แบบ smart (แสดง `…` เมื่อหน้าเยอะ)
-  - Map points ดึงแยกจาก results ผ่าน `assets_map` view (limit 800 จุด)
-  - Toggle provider OSM / Google Maps ผ่านปุ่มบนแผนที่
-
-- `[DetailPage]` หน้ารายละเอียดทรัพย์ (`/property/:id`) — 2-column layout
-  - Hero: รูปภาพ + รูปแผนที่/โฉนด, badges ประเภท+สถานะ+วิธีขาย
-  - ข้อมูลทรัพย์: เลขคดี, ศาล, คู่ความ, เจ้าของ, ผู้ครอบครอง
-  - นัดประมูล: แสดงครบทุก round (1-8) พร้อมสถานะแต่ละนัด
-  - วิเคราะห์ราคา: ราคาประเมิน vs ราคาประมูล + discount bar + ราคาที่ดินกรมที่ดิน
-  - แผนที่ Leaflet ติดอยู่ในหน้า (ดึงพิกัดจาก `assets_map` view)
-  - ลิงก์ดูต้นฉบับบน LED
-
-- `[MapPage]` Full-screen map (`/map`) — filter sidebar ซ้าย + แผนที่เต็มขวา
-  - โหลด map points ตาม filter (limit 2,000 จุด)
-  - กด marker → popup แสดงรูป, ราคา, ประเภท + ปุ่มไปหน้า detail
-  - Legend: สี navy = รับประมูล, เทา = ปิด, แดง = ขายแล้ว
-
-- `[DashboardPage]` Dashboard (`/dashboard`)
-  - 4 stat cards: ทรัพย์ทั้งหมด, รับประมูลอยู่, ขายแล้ว, มีพิกัด GPS
-  - Bar chart จังหวัด Top 15 (custom bars ไม่ใช้ Recharts เพื่อ performance)
-  - Pie chart (Recharts) สัดส่วนประเภททรัพย์ พร้อม legend + %
-  - ตาราง Crawler Runs 5 รอบล่าสุด (ดึงจาก `crawler_runs` table)
-
-- `[AdminPage]` Admin Panel (`/admin`)
-  - สถิติ: ทรัพย์ทั้งหมด, มีพิกัด, รอดึงพิกัด (พร้อมเตือนถ้า pending > 0)
-  - LED Crawler status: สถานะ run ล่าสุด, จำนวน records, จำนวนจังหวัด
-  - LandsMaps session: แสดง active/inactive, upload cookies form (JSON input + note)
-  - Crawler runs table: 15 รอบล่าสุด พร้อม mode, status, duration, version
-  - Upload cookies เขียนเข้า `landsmaps_sessions` table โดยตรงผ่าน Supabase JS
-
-#### Components
-
-- `[Navbar]` Fixed top bar — logo + nav links + จำนวนทรัพย์ทั้งหมด (real-time จาก Supabase)
-- `[PropertyCard]` Card ในหน้าค้นหา — รูป, location, deed number, พื้นที่, ราคา, discount badge (สีตามระดับ: 10%/20%/30%+)
-- `[SearchFilters]` Filter panel — province dropdown (77 จังหวัด), text input อำเภอ, radio ประเภท, price range + presets, status toggle
-- `[LeafletMap]` react-leaflet wrapper — CircleMarker สีตามสถานะ, Tooltip hover, FlyTo เมื่อ selectedId เปลี่ยน
-- `[GoogleMapSkeleton]` Placeholder รอ `VITE_GOOGLE_MAPS_KEY`
-
-#### Lib
-
-- `[src/lib/supabase.js]` Supabase client จาก `VITE_SUPABASE_ANON_KEY` (public key)
-- `[src/lib/constants.js]` 77 จังหวัด, asset types, issale status codes
-- `[src/lib/utils.js]` Format helpers: `fmtPrice`, `fmtArea`, `fmtDate`, `fmtRelative`, `statusInfo`, `calcDiscount` ฯลฯ
-- `[src/lib/mapProviders.js]` Provider abstraction — Leaflet (active) / Google Maps (skeleton)
+- `[SearchPage]` 3-panel layout: filter + results + Leaflet map live
+- `[DetailPage]` Hero image, นัดประมูลทุกรอบ, วิเคราะห์ราคา, แผนที่ใน page
+- `[MapPage]` Full-screen map, filter sidebar, popup เมื่อกด marker
+- `[DashboardPage]` 4 stat cards, bar chart จังหวัด, pie chart ประเภท
+- `[AdminPage]` Crawler runs, LandsMaps session, upload cookies form
 
 #### Setup
-
 ```bash
 cp .env.example .env   # ใส่ VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
-npm install
-npm run dev            # localhost:5173
-npm run build          # → dist/ สำหรับ Cloudflare Pages
+npm install && npm run dev
 ```
 
 ---
