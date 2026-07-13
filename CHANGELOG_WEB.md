@@ -7,6 +7,32 @@
 
 ---
 
+## 2026.07.14-1
+
+### Fixed — Dashboard: ทรัพย์ตามจังหวัด แสดงข้อมูลซ้ำและไม่ครบ
+
+- `[DashboardPage]` แก้ query `province_summary` จาก `select('city, ...')` 
+  → `select('led_province_name, ...')`
+  สาเหตุ: view เดิม group by `city` (ที่อยู่จริงของทรัพย์) ทำให้ 1 จังหวัด
+  ```
+  // เดิม
+  .select('city, total_assets, total_active, avg_price')
+  // ใหม่
+  .select('led_province_name, total_assets, total_active, avg_price')
+  ```
+  แตกเป็นหลาย row — กรุงเทพฯ แสดงเป็น 3 แถวแยกกันแทนที่จะรวมเป็นแถวเดียว
+- `[DashboardPage]` แก้ key และ display จาก `p.city` → `p.led_province_name`
+  ใน province bar chart (Top 15)
+  ผลลัพธ์: กรุงเทพมหานคร แสดงเป็น 1 แถว รวม 9,062 รายการ
+  และ Top 15 แสดงครบทุกจังหวัดที่มีทรัพย์จริง
+  ```
+  // เดิม
+  <div key={p.city}>{p.city}</div>
+  // ใหม่
+  <div key={p.led_province_name}>{p.led_province_name}</div>
+  ```  
+---
+
 ## 2026.07.12-3
 
 ### Changed — Batch A: UX/UI improvements ตาม review

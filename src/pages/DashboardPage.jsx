@@ -50,7 +50,7 @@ export default function DashboardPage() {
           supabase.from('assets').select('*', { count: 'exact', head: true }).eq('is_sold', true),
           supabase.from('asset_parcels').select('*', { count: 'exact', head: true }),
           supabase.from('province_summary')
-            .select('city, total_assets, total_active, total_sold, avg_price')
+            .select('led_province_name, total_assets, total_active, avg_price')
             .order('total_assets', { ascending: false })
             .limit(15),
           supabase.from('crawler_runs')
@@ -141,8 +141,8 @@ export default function DashboardPage() {
           {provinces.length > 0 ? (
             <div className="province-rows">
               {provinces.map(p => (
-                <div key={p.city} className="province-row">
-                  <div className="prov-name" title={p.city}>{p.city}</div>
+                <div key={p.led_province_name} className="province-row">
+                  <div className="prov-name" title={p.led_province_name}>{p.led_province_name}</div>
                   <div className="prov-bar-wrap">
                     <div className="prov-bar-fill" style={{ width: `${(p.total_assets / maxProv) * 100}%` }}/>
                   </div>
