@@ -15,7 +15,7 @@
   --text-2:         #475569;
   --text-3:         #94A3B8;
 
-  --accent:         #1A3A5C;
+  --accent:         #0056b3;
   --accent-h:       #1E4570;
   --accent-lt:      #EDF2FA;
 
@@ -23,14 +23,14 @@
   --orange-h:       #EA6C10;
   --orange-lt:      #FFF7ED;
 
-  --green:          #10B981;
+  --green:          #007411;
   --green-lt:       #ECFDF5;
   --green-dark:     #065F46;
 
   --red:            #EF4444;
   --red-lt:         #FEF2F2;
 
-  --amber:          #92400E;
+  --amber:          #f19d6a;
   --amber-lt:       #FFFBEB;
 
   /* ── Layout ── */
@@ -78,7 +78,7 @@ input, select, textarea { font-family: inherit; }
 .navbar {
   position: fixed; top: 0; left: 0; right: 0;
   height: var(--nav-h);
-  background: rgba(26, 58, 92, 0.94);
+  background: rgba(0, 69, 160, 0.94);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border-bottom: 1px solid rgba(255,255,255,0.10);
@@ -839,30 +839,32 @@ input, select, textarea { font-family: inherit; }
    DARK MODE
 ════════════════════════════════════════════════ */
 :root[data-theme="dark"] {
-  --bg:            #0F172A;
-  --surface:       #1E293B;
-  --surface-alt:   #162032;
-  --border:        #2D3F55;
-  --border-strong: #3D5269;
+  --bg:            #151617;
+  --surface:       #18191B;
+  --surface-alt:   #1D1F22;
+  --border:        #4b6992;
+  --border-strong: #2A3443;
 
-  --text:          #E2E8F0;
-  --text-2:        #94A3B8;
-  --text-3:        #64748B;
+  --text:          #ECECEC;
+  --text-2:        #C6C6C6;
+  --text-3:        #8D96A3;
 
-  --accent-lt:     #1A3260;
-  --orange-lt:     #2D1500;
-  --green-lt:      #052E1C;
-  --green-dark:    #4ADE80;
-  --red-lt:        #3B0A0A;
-  --amber-lt:      #2D1500;
+  --accent:        #a0c5e4;
+  --accent-lt:     #1B2230;
+  --orange-lt:     #372700;
+  --green:         #4ff0ba;  
+  --green-lt:      #063528;
+  --green-dark:    #34D399;
+  --red-lt:        #3B0C0C;
+  --amber-lt:      #281f00;
 
-  --sh-card: 0 2px 12px rgba(0,0,0,0.45);
-  --sh:      0 4px 16px rgba(0,0,0,0.40);
-  --sh-lg:   0 12px 40px rgba(0,0,0,0.55);
+  --sh-card: 0 2px 12px rgba(0,0,0,0.42);
+  --sh:      0 4px 16px rgba(0,0,0,0.45);
+  --sh-lg:   0 12px 40px rgba(0,0,0,0.60);
 }
 
 /* Dark mode — Leaflet map (dark tile effect) */
-[data-theme="dark"] .leaflet-tile {
+/*[data-theme="dark"] .leaflet-tile {
   filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
 }
 [data-theme="dark"] .leaflet-container {
@@ -878,40 +880,40 @@ input, select, textarea { font-family: inherit; }
   color: var(--text) !important;
 }
 [data-theme="dark"] .leaflet-popup-tip { background: var(--surface) !important; }
-
+*/
 /* Dark mode — dark toggle button in navbar */
 .dark-toggle {
   width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
-  background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.14);
-  color: rgba(255,255,255,0.80);
+  background: rgba(35,37,40,0.95); border: 1px solid rgba(77,92,115,0.55);
+  color: rgba(236,236,236,0.85);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: background 0.15s, color 0.15s;
   margin-left: auto;
 }
-.dark-toggle:hover { background: rgba(255,255,255,0.20); color: #fff; }
+.dark-toggle:hover { background: rgba(52,58,66,0.95); color: #ffffff; }
 
 /* Dark mode — score badge override */
-[data-theme="dark"] .score-badge.s-high { background: #052E1C; border-color: #166534; color: #4ADE80; }
-[data-theme="dark"] .score-badge.s-mid  { background: #2D1500; border-color: #92400E; color: #FB923C; }
-[data-theme="dark"] .type-badge.t001 { background: #052E1C; color: #4ADE80; }
-[data-theme="dark"] .type-badge.t002 { background: #1E293B; color: #93C5FD; }
-[data-theme="dark"] .type-badge.t003 { background: #2D1500; color: #FB923C; }
-[data-theme="dark"] .status-badge.open   { background: #052E1C; color: #4ADE80; }
-[data-theme="dark"] .status-badge.sold   { background: #3B0A0A; color: #F87171; }
+[data-theme="dark"] .score-badge.s-high { background: #082F25; border-color: #1B7A5B; color: #34D399; }
+[data-theme="dark"] .score-badge.s-mid  { background: #372700; border-color: #9A6700; color: #FBBF24; }
+[data-theme="dark"] .type-badge.t001 { background: #082F25; color: #34D399; }
+[data-theme="dark"] .type-badge.t002 { background: #1B2A3F; color: #A5C9FF; }
+[data-theme="dark"] .type-badge.t003 { background: #372700; color: #FBBF24; }
+[data-theme="dark"] .status-badge.open   { background: #082F25; color: #34D399; }
+[data-theme="dark"] .status-badge.sold   { background: #3C1111; color: #F87171; }
 [data-theme="dark"] .chip { background: var(--surface); border-color: var(--border); color: var(--text-2); }
-[data-theme="dark"] .chip:hover { background: var(--accent-lt); }
+[data-theme="dark"] .chip:hover { background: #20252D; }
 [data-theme="dark"] .filter-input, [data-theme="dark"] .filter-select { background: var(--surface); color: var(--text); }
-[data-theme="dark"] .filter-input::placeholder { color: var(--text-3); }
-[data-theme="dark"] .runs-table tr:hover td { background: var(--surface-alt); }
-[data-theme="dark"] .price-analysis { background: #162032; border-color: #2D3F55; }
+[data-theme="dark"] .filter-input::placeholder { color: #8D96A3; }
+[data-theme="dark"] .runs-table tr:hover td { background: #202226; }
+[data-theme="dark"] .price-analysis { background: #182130; border-color: #32465F; }
 [data-theme="dark"] .bid-round { background: var(--surface-alt); border-color: var(--border); }
-[data-theme="dark"] .bid-round.upcoming { background: #2D1500; border-color: #C2410C; }
+[data-theme="dark"] .bid-round.upcoming { background: #372700; border-color: #C79200; }
 [data-theme="dark"] .hero-stat { background: var(--surface); border-color: var(--border); }
-[data-theme="dark"] .hero-stat-icon.c-accent { background: var(--accent-lt); }
-[data-theme="dark"] .hero-stat-icon.c-green  { background: #052E1C; color: #4ADE80; }
-[data-theme="dark"] .hero-stat-icon.c-orange { background: #2D1500; color: #FB923C; }
-[data-theme="dark"] .hero-stat-icon.c-blue   { background: #1E293B; color: #93C5FD; }
-[data-theme="dark"] .lightbox-overlay { background: rgba(0,0,0,0.92); }
+[data-theme="dark"] .hero-stat-icon.c-accent { background: #20252D; }
+[data-theme="dark"] .hero-stat-icon.c-green  { background: #082F25; color: #34D399; }
+[data-theme="dark"] .hero-stat-icon.c-orange { background: #372700; color: #FBBF24; }
+[data-theme="dark"] .hero-stat-icon.c-blue   { background: #1B2A3F; color: #A5C9FF; }
+[data-theme="dark"] .lightbox-overlay { background: rgba(0,0,0,0.94); }
 
 /* ════════════════════════════════════════════════
    COORD BADGE
