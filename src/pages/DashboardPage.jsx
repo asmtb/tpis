@@ -21,7 +21,7 @@ function BarTip({ active, payload }) {
       <div style={{ fontWeight: 700, marginBottom: 2 }}>{d.payload.city || d.payload.name}</div>
       <div style={{ color: 'var(--accent)' }}>ทรัพย์ทั้งหมด: {fmtNum(d.payload.total_assets)}</div>
       {d.payload.total_active != null && (
-        <div style={{ color: 'var(--green)' }}>รับประมูล: {fmtNum(d.payload.total_active)}</div>
+        <div style={{ color: 'var(--green)' }}>เปิดประมูล: {fmtNum(d.payload.total_active)}</div>
       )}
     </div>
   )
@@ -113,7 +113,7 @@ export default function DashboardPage() {
             <div className="stat-card-sub">รายการในระบบ</div>
           </div>
           <div className="stat-card c-green">
-            <div className="stat-card-lbl">รับประมูลอยู่</div>
+            <div className="stat-card-lbl">เปิดประมูลอยู่</div>
             <div className="stat-card-val">{fmtNum(stats.active)}</div>
             <div className="stat-card-sub">{stats.total > 0 ? `${Math.round(stats.active / stats.total * 100)}% ของทั้งหมด` : '—'}</div>
           </div>

@@ -20,7 +20,7 @@ function FlyTo({ properties, selectedId }) {
 function markerColor(p) {
   if (p.is_sold)   return '#B91C1C'  // ขายแล้ว
   if (p.is_closed) return '#A8A29E'  // ปิดแล้ว
-  return '#1A3A5C'                    // รับประมูล
+  return '#1A3A5C'                    // เปิดประมูล
 }
 
 export default function LeafletMap({ properties = [], selectedId, onMarkerClick }) {

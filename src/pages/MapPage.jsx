@@ -114,7 +114,7 @@ export default function MapPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto' }}>
           <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>สัญลักษณ์</div>
           {[
-            { color: '#1A3A5C', label: 'รับประมูล' },
+            { color: '#1A3A5C', label: 'เปิดประมูล' },
             { color: '#A8A29E', label: 'ปิดแล้ว' },
             { color: '#B91C1C', label: 'ขายแล้ว' },
           ].map(({ color, label }) => (
