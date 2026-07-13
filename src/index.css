@@ -834,3 +834,103 @@ input, select, textarea { font-family: inherit; }
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .img-thumb:hover { border-color: var(--accent); box-shadow: var(--sh-sm); }
+
+/* ════════════════════════════════════════════════
+   DARK MODE
+════════════════════════════════════════════════ */
+:root[data-theme="dark"] {
+  --bg:            #0F172A;
+  --surface:       #1E293B;
+  --surface-alt:   #162032;
+  --border:        #2D3F55;
+  --border-strong: #3D5269;
+
+  --text:          #E2E8F0;
+  --text-2:        #94A3B8;
+  --text-3:        #64748B;
+
+  --accent-lt:     #1A3260;
+  --orange-lt:     #2D1500;
+  --green-lt:      #052E1C;
+  --green-dark:    #4ADE80;
+  --red-lt:        #3B0A0A;
+  --amber-lt:      #2D1500;
+
+  --sh-card: 0 2px 12px rgba(0,0,0,0.45);
+  --sh:      0 4px 16px rgba(0,0,0,0.40);
+  --sh-lg:   0 12px 40px rgba(0,0,0,0.55);
+}
+
+/* Dark mode — Leaflet map (dark tile effect) */
+[data-theme="dark"] .leaflet-tile {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
+[data-theme="dark"] .leaflet-container {
+  background: #162032;
+}
+[data-theme="dark"] .leaflet-control-zoom a {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+[data-theme="dark"] .leaflet-popup-content-wrapper {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+[data-theme="dark"] .leaflet-popup-tip { background: var(--surface) !important; }
+
+/* Dark mode — dark toggle button in navbar */
+.dark-toggle {
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.80);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+  margin-left: auto;
+}
+.dark-toggle:hover { background: rgba(255,255,255,0.20); color: #fff; }
+
+/* Dark mode — score badge override */
+[data-theme="dark"] .score-badge.s-high { background: #052E1C; border-color: #166534; color: #4ADE80; }
+[data-theme="dark"] .score-badge.s-mid  { background: #2D1500; border-color: #92400E; color: #FB923C; }
+[data-theme="dark"] .type-badge.t001 { background: #052E1C; color: #4ADE80; }
+[data-theme="dark"] .type-badge.t002 { background: #1E293B; color: #93C5FD; }
+[data-theme="dark"] .type-badge.t003 { background: #2D1500; color: #FB923C; }
+[data-theme="dark"] .status-badge.open   { background: #052E1C; color: #4ADE80; }
+[data-theme="dark"] .status-badge.sold   { background: #3B0A0A; color: #F87171; }
+[data-theme="dark"] .chip { background: var(--surface); border-color: var(--border); color: var(--text-2); }
+[data-theme="dark"] .chip:hover { background: var(--accent-lt); }
+[data-theme="dark"] .filter-input, [data-theme="dark"] .filter-select { background: var(--surface); color: var(--text); }
+[data-theme="dark"] .filter-input::placeholder { color: var(--text-3); }
+[data-theme="dark"] .runs-table tr:hover td { background: var(--surface-alt); }
+[data-theme="dark"] .price-analysis { background: #162032; border-color: #2D3F55; }
+[data-theme="dark"] .bid-round { background: var(--surface-alt); border-color: var(--border); }
+[data-theme="dark"] .bid-round.upcoming { background: #2D1500; border-color: #C2410C; }
+[data-theme="dark"] .hero-stat { background: var(--surface); border-color: var(--border); }
+[data-theme="dark"] .hero-stat-icon.c-accent { background: var(--accent-lt); }
+[data-theme="dark"] .hero-stat-icon.c-green  { background: #052E1C; color: #4ADE80; }
+[data-theme="dark"] .hero-stat-icon.c-orange { background: #2D1500; color: #FB923C; }
+[data-theme="dark"] .hero-stat-icon.c-blue   { background: #1E293B; color: #93C5FD; }
+[data-theme="dark"] .lightbox-overlay { background: rgba(0,0,0,0.92); }
+
+/* ════════════════════════════════════════════════
+   COORD BADGE
+════════════════════════════════════════════════ */
+.coord-badge {
+  font-size: 0.67rem; font-weight: 600;
+  padding: 2px 7px; border-radius: 4px; white-space: nowrap;
+  background: #EFF6FF; color: #1D4ED8;
+}
+[data-theme="dark"] .coord-badge { background: #1E293B; color: #93C5FD; }
+
+/* ════════════════════════════════════════════════
+   CARD SIZE FIX
+════════════════════════════════════════════════ */
+.property-card { min-height: 140px; }
+.card-img      { width: 150px; min-height: 140px; }
+.card-body     { padding: 12px 14px; gap: 5px; }
+.card-location { font-size: 0.85rem; }
+.card-deed     { font-size: 0.78rem; }
+.card-area     { font-size: 0.85rem; }
+.card-price-val { font-size: 1.05rem; }
+.ai-summary    { font-size: 0.75rem; }

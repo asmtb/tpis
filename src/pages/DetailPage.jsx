@@ -183,8 +183,10 @@ export default function DetailPage() {
                       </div>
                       <div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>โฉนด</div>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: '0.83rem' }}>
-                          {asset.deedno_raw || '—'}
+                        <div style={{ fontSize: '0.83rem' }}>
+                          {Array.isArray(asset.deedno) && asset.deedno.length > 0
+                            ? asset.deedno.join(', ')
+                            : (asset.deedno_raw || '—')}
                         </div>
                       </div>
                       {asset.deedno_count > 1 && (

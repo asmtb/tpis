@@ -148,7 +148,7 @@ export default function SearchFilters({ filters, onChange, onApply, onReset }) {
       {/* สถานะ */}
       <Section title="📊 สถานะ">
         <div className="filter-status-group">
-          {[['all','ทั้งหมด'],['open','เปิดอยู่'],['closed','ปิดแล้ว']].map(([id, lbl]) => (
+          {[['all','ทั้งหมด'],['open','เปิดประมูล'],['closed','ปิดแล้ว']].map(([id, lbl]) => (
             <button key={id}
               className={`filter-status-btn${filters.status === id ? ' active' : ''}`}
               onClick={() => set('status', id)}

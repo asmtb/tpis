@@ -7,6 +7,52 @@
 
 ---
 
+## 2026.07.12-3
+
+### Changed — Batch A: UX/UI improvements ตาม review
+
+#### Dark Mode (`src/index.css`, `src/components/Navbar.jsx`, `index.html`)
+
+- `[design]` เพิ่ม dark mode ครบระบบ — CSS custom properties ชุด dark ใน `:root[data-theme="dark"]`
+  สี: bg `#0F172A`, surface `#1E293B`, text `#E2E8F0`, border `#2D3F55`
+- `[design]` Leaflet map dark effect ผ่าน CSS filter: `brightness invert contrast hue-rotate`
+- `[Navbar]` ลบ "จำนวนรายการในระบบ" ออกจาก navbar right
+  เพิ่ม Dark Mode toggle button (🌙/☀) ขวาสุดของ navbar
+- `[index.html]` เพิ่ม inline script init theme ก่อน CSS render — ป้องกัน flash of wrong theme
+  อ่าน `localStorage['tpis-theme']` แล้ว set `data-theme` บน `<html>` ทันที
+- `[Navbar]` บันทึก preference ใน `localStorage['tpis-theme']` ข้ามการ refresh
+
+#### "รับประมูล" → "เปิดประมูล" (`src/lib/utils.js`, `src/components/SearchFilters.jsx`)
+
+- `[utils]` `statusInfo()` แก้ label จาก `'รับประมูล'` → `'เปิดประมูล'`
+  กระทบทุกหน้าที่ใช้ `statusInfo()` — SearchPage, DetailPage, MapPage
+- `[SearchFilters]` แก้ label status button `'เปิดอยู่'` → `'เปิดประมูล'` ให้สอดคล้องกัน
+
+#### Tag "📍 พิกัด" บน Property Card (`src/components/PropertyCard.jsx`, `src/pages/SearchPage.jsx`)
+
+- `[PropertyCard]` เพิ่ม prop `hasCoord: boolean` — ถ้า true แสดง badge `📍 พิกัด` ในแถว badges
+  badge สีฟ้า (เหมือน type badge ห้องชุด) ทั้ง light และ dark mode
+- `[SearchPage]` สร้าง `coordSet = useMemo(() => new Set(mapPts.map(p => p.id)), [mapPts])`
+  ส่ง `hasCoord={coordSet.has(p.id)}` ให้แต่ละ PropertyCard โดยไม่ต้อง fetch เพิ่ม
+  (ใช้ข้อมูลจาก mapPts ที่ดึงอยู่แล้ว)
+
+#### โฉนด: ใช้ `deedno` array แทน `deedno_raw` (`src/pages/DetailPage.jsx`)
+
+- `[DetailPage]` เปลี่ยนแหล่งข้อมูลโฉนดใน hero section จาก `asset.deedno_raw` (string ดิบ)
+  → `asset.deedno` (array จาก DB) โดย join ด้วย `', '`
+  fallback: ถ้า deedno array ว่าง ใช้ deedno_raw แทน
+- `[DetailPage]` เปลี่ยน font จาก `font-family: var(--mono)` → font ปกติ
+  ให้เหมือนกับช่องพื้นที่และจำนวนโฉนด
+
+#### Card Size Fix (`src/index.css`)
+
+- `[design]` เพิ่ม `min-height: 140px` บน `.property-card`
+- `[design]` ขยาย `.card-img` จาก 130px → 150px และเพิ่ม `min-height: 140px`
+- `[design]` ปรับ font-size: location/area 0.85rem, deed 0.78rem, ai-summary 0.75rem
+  ให้ content ใน card อ่านง่ายขึ้นและไม่ถูกตัดทิ้ง
+
+---
+
 ## 2026.07.12-2
 
 ### Fixed — Detail Page: 5 จุดที่แก้จากการเปรียบเทียบกับต้นฉบับ LED

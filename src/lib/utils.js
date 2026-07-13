@@ -4,7 +4,7 @@ import { ASSET_TYPE_LABELS, ISSALE_STATUS } from './constants.js'
 export function fmtPrice(val) {
   if (!val || val <= 0) return '—'
   if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)} ล้าน ฿`
-  if (val >= 100_000)   return `${(val / 1_000).toFixed(0)} K ฿`
+  if (val >= 100_000)   return `${(val / 1_000).toFixed(0),} K ฿`
   return `${Number(val).toLocaleString()} ฿`
 }
 
@@ -97,7 +97,7 @@ export function typeLabel(id, fallback = '') {
 export function statusInfo(p) {
   if (p.is_sold)   return { cls: 'sold',   label: 'ขายแล้ว' }
   if (p.is_closed) return { cls: 'closed', label: 'ปิดแล้ว' }
-  return               { cls: 'open',   label: 'รับประมูล' }
+  return               { cls: 'open',   label: 'เปิดประมูล' }
 }
 
 /** issale code → { label, cls } */

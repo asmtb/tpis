@@ -1,5 +1,9 @@
 import { Link } from 'react-router-dom'
-import { fmtPrice, fmtArea, typeClass, typeLabel, statusInfo, calcDiscount, discountClass } from '../lib/utils.js'
+import {
+  fmtPrice, fmtArea,
+  typeClass, typeLabel, statusInfo,
+  calcDiscount, discountClass,
+} from '../lib/utils.js'
 
 const PIN = (
   <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
@@ -21,29 +25,21 @@ const IMG_PH = (
 )
 
 /** Mock Investment Score 55–95 จาก id (deterministic) */
-function mockScore(id) {
-  return 55 + ((id * 2654435761) >>> 0) % 41
-}
-function scoreClass(s) {
-  if (s >= 78) return 's-high'
-  if (s >= 65) return 's-mid'
-  return 's-low'
-}
+function mockScore(id) { return 55 + ((id * 2654435761) >>> 0) % 41 }
+function scoreClass(s) { return s >= 78 ? 's-high' : s >= 65 ? 's-mid' : 's-low' }
 function scoreStars(s) {
-  const stars = s >= 85 ? 5 : s >= 75 ? 4 : s >= 65 ? 3 : s >= 55 ? 2 : 1
-  return '★'.repeat(stars) + '☆'.repeat(5 - stars)
+  const n = s >= 85 ? 5 : s >= 75 ? 4 : s >= 65 ? 3 : s >= 55 ? 2 : 1
+  return '★'.repeat(n) + '☆'.repeat(5 - n)
 }
-
-/** Mock AI summary */
-function mockAI(id, roundNo) {
-  const score = mockScore(id)
-  if (score >= 80) return 'ทำเลดี · ราคาน่าสนใจ · ความเสี่ยงต่ำ'
-  if (score >= 70) return 'น่าพิจารณา · ควรตรวจสอบภาระก่อนตัดสินใจ'
-  if (score >= 60) return 'ผ่านหลายนัดแล้ว · ราคาลดลงตามลำดับ'
+function mockAI(id) {
+  const s = mockScore(id)
+  if (s >= 80) return 'ทำเลดี · ราคาน่าสนใจ · ความเสี่ยงต่ำ'
+  if (s >= 70) return 'น่าพิจารณา · ควรตรวจสอบภาระก่อน'
+  if (s >= 60) return 'ผ่านหลายนัดแล้ว · ราคาลดลงตามลำดับ'
   return 'ควรประเมินความเสี่ยงเพิ่มเติม'
 }
 
-export default function PropertyCard({ property: p }) {
+export default function PropertyCard({ property: p, hasCoord = false }) {
   const tc = typeClass(p.asset_type_id)
   const tl = typeLabel(p.asset_type_id, p.asset_type_desc)
   const { cls: stCls, label: stLabel } = statusInfo(p)
@@ -51,9 +47,8 @@ export default function PropertyCard({ property: p }) {
   const score = mockScore(p.id)
   const sc    = scoreClass(score)
 
-  const latestPrice = p.assetprice1 || null
-  const discPct     = calcDiscount(p.assetprice3, latestPrice)
-  const dc          = discountClass(discPct)
+  const discPct = calcDiscount(p.assetprice3, p.assetprice1)
+  const dc      = discountClass(discPct)
 
   const location = [p.tumbol, p.ampur, p.city].filter(Boolean).join(' · ')
 
@@ -62,8 +57,7 @@ export default function PropertyCard({ property: p }) {
       <div className="card-img">
         {p.url_picture
           ? <img src={p.url_picture} alt="" loading="lazy"
-              onError={e => { e.target.style.display = 'none' }}
-            />
+              onError={e => { e.target.style.display = 'none' }} />
           : IMG_PH
         }
       </div>
@@ -74,6 +68,10 @@ export default function PropertyCard({ property: p }) {
           <div className="card-badges">
             <span className={`type-badge ${tc}`}>{tl}</span>
             <span className={`status-badge ${stCls}`}>{stLabel}</span>
+            {/* พิกัด badge — แสดงเฉพาะที่มีพิกัดจาก LandsMaps */}
+            {hasCoord && (
+              <span className="coord-badge">📍 พิกัด</span>
+            )}
           </div>
           <div className={`score-badge ${sc}`} title="Investment Score (mock)">
             <span className="s-val">{score}</span>
@@ -106,7 +104,7 @@ export default function PropertyCard({ property: p }) {
         {/* AI Summary */}
         <div className="ai-summary">
           <div className="ai-dot"/>
-          <span>{mockAI(p.id, p.latest_round_no)}</span>
+          <span>{mockAI(p.id)}</span>
         </div>
 
         {/* Footer: price + discount */}
