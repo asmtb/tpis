@@ -21,7 +21,7 @@ export default function MapPage() {
     try {
       let q = supabase
         .from('assets_map')
-        .select('id, city, ampur, tumbol, asset_type_id, asset_type_desc, assetprice3, reserve_fund, is_sold, is_closed, latest_round_no, latest_status, url_picture, latitude, longitude, land_price_per_sqw')
+        .select('id, city, ampur, tumbol, asset_type_id, asset_type_desc, appraisal_price, reserve_fund, is_sold, is_closed, latest_round_no, latest_status, url_picture, latitude, longitude, land_price_per_sqw')
         .not('latitude', 'is', null)
         .not('longitude', 'is', null)
         .limit(2000)

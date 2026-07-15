@@ -44,7 +44,7 @@ function buildQuery(f, offset = 0) {
 async function fetchMapPts(f) {
   let q = supabase
     .from('assets_map')
-    .select('id,city,ampur,asset_type_id,asset_type_desc,assetprice3,is_sold,is_closed,latitude,longitude')
+    .select('id,city,ampur,asset_type_id,asset_type_desc,appraisal_price,is_sold,is_closed,latitude,longitude')
     .not('latitude', 'is', null)
     .limit(1000)
   if (f.city)          q = q.eq('city', f.city)

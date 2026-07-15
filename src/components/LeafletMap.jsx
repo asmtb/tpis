@@ -65,7 +65,7 @@ export default function LeafletMap({ properties = [], selectedId, onMarkerClick 
               {p.ampur && <span style={{ color: '#6B6560' }}>{p.ampur}</span>}
               <br />
               <span style={{ color: '#1A3A5C', fontWeight: 700 }}>
-                {fmtPriceShort(p.assetprice3)}
+                {fmtPriceShort(p.appraisal_price)}
               </span>
             </div>
           </Tooltip>
