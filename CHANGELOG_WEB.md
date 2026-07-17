@@ -7,6 +7,27 @@
 
 ---
 
+## 2026.07.18-2
+  
+### Fixed - badge พิกัด ในหน้า detailpage + เพิ่ม limit สำหรับ badge ที่ไม่แสดงสำหรับบาง not_verified
+
+#### ไม่ต้องแสดง badge "📍 แสดงพิกัด" ในหน้า detailpage
+- `[DetailPage]`  ลบ block นี้ออก
+  ```
+  {mapPt?.latitude && (<span className="coord-badge">📍 แสดงพิกัด</span>)}
+  ```
+#### เพิ่ม limit สำหรับ badge ที่ไม่แสดงสำหรับบาง not_verified
+- `[SearchPage]`  ถ้า not_verified asset อยู่นอก 1000 อันดับแรก → ไม่ติดใน coordSet → ไม่มี badge
+  วิธีแก้: เพิ่ม limit หรือเปลี่ยนเป็น query แยกเพื่อดึงแค่ id ของทุก asset ที่มีพิกัด
+  แก้แค่ src/pages/SearchPage.jsx ใน fetchMapPts() บรรทัดเดียว:
+  ```
+  // เดิม
+  .limit(1000)
+  // ใหม่ — เพิ่มเป็น 3000 หรือตามจำนวน assets_map จริง
+  .limit(3000)
+  ```  
+---
+
 ## 2026.07.18-1
 
 ### Fixed — Location: ใช้ deed fields เป็นหลักทุกหน้า + ราคาเต็มใน GIS Map

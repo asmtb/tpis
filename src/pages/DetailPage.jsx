@@ -166,9 +166,11 @@ export default function DetailPage() {
                           borderRadius: 4, fontWeight: 600,
                         }}>{asset.saletypename}</span>
                       )}
+                      {/* แสดง badge ว่ามีพิกัด
                       {mapPt?.latitude && (
                         <span className="coord-badge">📍 แสดงพิกัด</span>
                       )}
+                      */}
                     </div>
                     <div className="detail-title">{tl}</div>
                     <div className="detail-location">📍 {location}</div>

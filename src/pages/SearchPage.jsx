@@ -48,7 +48,7 @@ async function fetchMapPts(f) {
     .select('id,city,ampur,tumbol,deedcity,deedampur,deedtumbol,' +
             'asset_type_id,asset_type_desc,appraisal_price,is_sold,is_closed,latitude,longitude')
     .not('latitude', 'is', null)
-    .limit(1000)
+    .limit(3000)
   if (f.city)          q = q.eq('city', f.city)
   if (f.asset_type_id) q = q.eq('asset_type_id', f.asset_type_id)
   if (f.status === 'open')   q = q.eq('is_closed', false)
