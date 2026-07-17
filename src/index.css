@@ -864,7 +864,8 @@ input, select, textarea { font-family: inherit; }
 }
 
 /* Dark mode — Leaflet map (dark tile effect) */
-/*[data-theme="dark"] .leaflet-tile {
+/*
+[data-theme="dark"] .leaflet-tile {
   filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
 }
 [data-theme="dark"] .leaflet-container {
@@ -881,6 +882,7 @@ input, select, textarea { font-family: inherit; }
 }
 [data-theme="dark"] .leaflet-popup-tip { background: var(--surface) !important; }
 */
+
 /* Dark mode — dark toggle button in navbar */
 .dark-toggle {
   width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
@@ -936,3 +938,17 @@ input, select, textarea { font-family: inherit; }
 .card-area     { font-size: 0.85rem; }
 .card-price-val { font-size: 1.05rem; }
 .ai-summary    { font-size: 0.75rem; }
+
+/* ════════════════════════════════════════════════
+   COORD BADGE — สีชมพู (override)
+════════════════════════════════════════════════ */
+.coord-badge {
+  background: #FDF2F8 !important;
+  color:      #BE185D !important;
+  border:     1px solid #FBCFE8;
+}
+[data-theme="dark"] .coord-badge {
+  background: #3D0F2E !important;
+  color:      #F472B6 !important;
+  border-color: #831843;
+}

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import {
-  fmtPrice, fmtArea,
+  fmtPrice, fmtArea, fmtLocation,
   typeClass, typeLabel, statusInfo,
   calcDiscount, discountClass,
 } from '../lib/utils.js'
@@ -24,7 +24,6 @@ const IMG_PH = (
   </div>
 )
 
-/** Mock Investment Score 55–95 จาก id (deterministic) */
 function mockScore(id) { return 55 + ((id * 2654435761) >>> 0) % 41 }
 function scoreClass(s) { return s >= 78 ? 's-high' : s >= 65 ? 's-mid' : 's-low' }
 function scoreStars(s) {
@@ -43,14 +42,11 @@ export default function PropertyCard({ property: p, hasCoord = false }) {
   const tc = typeClass(p.asset_type_id)
   const tl = typeLabel(p.asset_type_id, p.asset_type_desc)
   const { cls: stCls, label: stLabel } = statusInfo(p)
-
-  const score = mockScore(p.id)
-  const sc    = scoreClass(score)
-
-  const discPct = calcDiscount(p.assetprice3, p.assetprice1)
-  const dc      = discountClass(discPct)
-
-  const location = [p.tumbol, p.ampur, p.city].filter(Boolean).join(' · ')
+  const score    = mockScore(p.id)
+  const sc       = scoreClass(score)
+  const discPct  = calcDiscount(p.assetprice3, p.assetprice1)
+  const dc       = discountClass(discPct)
+  const location = fmtLocation(p)   // deed first → fallback city/ampur/tumbol
 
   return (
     <Link to={`/property/${p.id}`} className={`property-card${p.is_closed ? ' is-closed' : ''}`}>
@@ -68,10 +64,7 @@ export default function PropertyCard({ property: p, hasCoord = false }) {
           <div className="card-badges">
             <span className={`type-badge ${tc}`}>{tl}</span>
             <span className={`status-badge ${stCls}`}>{stLabel}</span>
-            {/* พิกัด badge — แสดงเฉพาะที่มีพิกัดจาก LandsMaps */}
-            {hasCoord && (
-              <span className="coord-badge">📍 พิกัด</span>
-            )}
+            {hasCoord && <span className="coord-badge">📍 แสดงพิกัด</span>}
           </div>
           <div className={`score-badge ${sc}`} title="Investment Score (mock)">
             <span className="s-val">{score}</span>
@@ -79,7 +72,7 @@ export default function PropertyCard({ property: p, hasCoord = false }) {
           </div>
         </div>
 
-        {/* Location */}
+        {/* Location — deed first */}
         <div className="card-location">
           {PIN}
           <span>{location || '—'}</span>
@@ -107,7 +100,7 @@ export default function PropertyCard({ property: p, hasCoord = false }) {
           <span>{mockAI(p.id)}</span>
         </div>
 
-        {/* Footer: price + discount */}
+        {/* Footer */}
         <div className="card-footer">
           <div className="card-price">
             <div className="card-price-lbl">ราคาประเมิน</div>

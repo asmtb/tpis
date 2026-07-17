@@ -116,3 +116,12 @@ export function fmtPriceFull(val) {
   if (!val || val <= 0) return '—'
   return `${Math.round(val).toLocaleString()} ฿`
 }
+
+/** ที่อยู่ — deed fields เป็นหลัก fallback ไป asset fields
+ *  ใช้กับ PropertyCard, LeafletMap tooltip, DetailPage, MapPage popup */
+export function fmtLocation(p) {
+  const t = p.deedtumbol || p.tumbol || ''
+  const a = p.deedampur  || p.ampur  || ''
+  const c = p.deedcity   || p.city   || ''
+  return [t, a, c].filter(Boolean).join(' › ')
+}

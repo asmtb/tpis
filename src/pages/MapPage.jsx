@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import LeafletMap from '../components/LeafletMap.jsx'
 import { PROVINCES, ASSET_TYPES } from '../lib/constants.js'
-import { fmtPrice, typeLabel, statusInfo } from '../lib/utils.js'
+import { fmtPriceFull, fmtLocation, typeLabel, statusInfo, typeClass } from '../lib/utils.js'
 
 const DEFAULT_F = { city: '', asset_type_id: '', status: 'all' }
 
@@ -16,14 +16,17 @@ export default function MapPage() {
   const [total, setTotal]       = useState(0)
 
   const load = useCallback(async (f) => {
-    setLoading(true)
-    setSelected(null)
+    setLoading(true); setSelected(null)
     try {
       let q = supabase
         .from('assets_map')
-        .select('id, city, ampur, tumbol, asset_type_id, asset_type_desc, appraisal_price, reserve_fund, is_sold, is_closed, latest_round_no, latest_status, url_picture, latitude, longitude, land_price_per_sqw')
+        .select(
+          'id,city,ampur,tumbol,deedcity,deedampur,deedtumbol,' +
+          'asset_type_id,asset_type_desc,appraisal_price,land_price_per_sqw,' +
+          'reserve_fund,is_sold,is_closed,latest_round_no,latest_status,' +
+          'url_picture,latitude,longitude'
+        )
         .not('latitude', 'is', null)
-        .not('longitude', 'is', null)
         .limit(2000)
 
       if (f.city)          q = q.eq('city', f.city)
@@ -43,18 +46,16 @@ export default function MapPage() {
     }
   }, [])
 
-  // โหลดครั้งแรกอัตโนมัติ
   useState(() => { load(DEFAULT_F) })
 
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }))
-
   const handleApply = () => load(filters)
   const handleReset = () => { setFilters(DEFAULT_F); load(DEFAULT_F) }
 
   const { cls: selStCls, label: selStLabel } = selected ? statusInfo(selected) : {}
 
   return (
-    <div className="map-full" style={{ display: 'flex' }}>
+    <div className="map-full">
 
       {/* Left filter strip */}
       <div style={{
@@ -63,38 +64,39 @@ export default function MapPage() {
         display: 'flex', flexDirection: 'column', gap: 14,
         overflowY: 'auto', zIndex: 10,
       }}>
-        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-3)',
+          letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           แผนที่ทรัพย์
         </div>
 
-        {/* จังหวัด */}
-        <div className="filter-section">
+        <div className="filter-section" style={{ border: 'none' }}>
           <div className="filter-label">จังหวัด</div>
-          <select className="filter-select" value={filters.city}
-            onChange={e => set('city', e.target.value)}>
-            <option value="">ทุกจังหวัด</option>
-            {PROVINCES.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-          </select>
+          <div className="filter-select-wrap">
+            <select className="filter-select" value={filters.city}
+              onChange={e => set('city', e.target.value)}>
+              <option value="">ทุกจังหวัด</option>
+              {PROVINCES.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+            </select>
+          </div>
         </div>
 
-        {/* ประเภท */}
-        <div className="filter-section">
+        <div className="filter-section" style={{ border: 'none' }}>
           <div className="filter-label">ประเภท</div>
-          <select className="filter-select" value={filters.asset_type_id}
-            onChange={e => set('asset_type_id', e.target.value)}>
-            {ASSET_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
+          <div className="filter-select-wrap">
+            <select className="filter-select" value={filters.asset_type_id}
+              onChange={e => set('asset_type_id', e.target.value)}>
+              {ASSET_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
         </div>
 
-        {/* สถานะ */}
-        <div className="filter-section">
+        <div className="filter-section" style={{ border: 'none' }}>
           <div className="filter-label">สถานะ</div>
           <div className="filter-status-group">
-            {[['all','ทั้งหมด'],['open','เปิดอยู่'],['closed','ปิดแล้ว']].map(([id, lbl]) => (
+            {[['all','ทั้งหมด'],['open','เปิดประมูล'],['closed','ปิดแล้ว']].map(([id, lbl]) => (
               <button key={id}
                 className={`filter-status-btn${filters.status === id ? ' active' : ''}`}
-                onClick={() => set('status', id)}
-              >{lbl}</button>
+                onClick={() => set('status', id)}>{lbl}</button>
             ))}
           </div>
         </div>
@@ -112,14 +114,18 @@ export default function MapPage() {
 
         {/* Legend */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto' }}>
-          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>สัญลักษณ์</div>
+          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-3)',
+            letterSpacing: '0.05em', textTransform: 'uppercase' }}>สัญลักษณ์</div>
           {[
             { color: '#1A3A5C', label: 'เปิดประมูล' },
             { color: '#A8A29E', label: 'ปิดแล้ว' },
             { color: '#B91C1C', label: 'ขายแล้ว' },
           ].map(({ color, label }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: 'var(--text-2)' }}>
-              <svg width="12" height="12"><circle cx="6" cy="6" r="5" fill={color} stroke="white" strokeWidth="1.5"/></svg>
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8,
+              fontSize: '0.8rem', color: 'var(--text-2)' }}>
+              <svg width="12" height="12">
+                <circle cx="6" cy="6" r="5" fill={color} stroke="white" strokeWidth="1.5"/>
+              </svg>
               {label}
             </div>
           ))}
@@ -129,10 +135,8 @@ export default function MapPage() {
       {/* Map */}
       <div style={{ flex: 1, position: 'relative' }}>
         {loading && (
-          <div style={{
-            position: 'absolute', inset: 0, background: 'rgba(245,244,240,0.7)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500,
-          }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(245,244,240,0.7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}>
             <div className="dots"><span/><span/><span/></div>
           </div>
         )}
@@ -143,60 +147,64 @@ export default function MapPage() {
           onMarkerClick={p => setSelected(prev => prev?.id === p.id ? null : p)}
         />
 
-        {/* Selected property popup */}
+        {/* Selected popup */}
         {selected && (
           <div style={{
             position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-            background: 'var(--surface)', border: '1px solid var(--border)',
+            background: 'var(--surface)', border: '1.5px solid var(--border)',
             borderRadius: 'var(--r-lg)', padding: '14px 18px',
             boxShadow: 'var(--sh-lg)', zIndex: 1000,
-            minWidth: 300, maxWidth: 420,
+            minWidth: 300, maxWidth: 440,
             display: 'flex', gap: 14, alignItems: 'flex-start',
           }}>
             {selected.url_picture && (
               <img src={selected.url_picture} alt=""
-                style={{ width: 72, height: 56, objectFit: 'cover', borderRadius: 'var(--r-sm)', flexShrink: 0 }}
-                onError={e => e.target.style.display='none'}
+                style={{ width: 80, height: 64, objectFit: 'cover',
+                  borderRadius: 'var(--r-sm)', flexShrink: 0 }}
+                onError={e => e.target.style.display = 'none'}
               />
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <span className={`type-badge ${selected.asset_type_id === '001' ? 't001' : selected.asset_type_id === '002' ? 't002' : selected.asset_type_id === '003' ? 't003' : 't_x'}`}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                <span className={`type-badge ${typeClass(selected.asset_type_id)}`}>
                   {typeLabel(selected.asset_type_id)}
                 </span>
                 <span className={`status-badge ${selStCls}`}>{selStLabel}</span>
               </div>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: 2 }}>
-                {[selected.ampur, selected.city].filter(Boolean).join(', ')}
+
+              {/* ที่อยู่จาก deed fields */}
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-2)', marginBottom: 4 }}>
+                📍 {fmtLocation(selected) || '—'}
               </div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--mono)' }}>
-                {fmtPrice(selected.assetprice3)}
+
+              {/* ราคาเต็ม */}
+              <div style={{ fontWeight: 800, fontSize: '1rem',
+                color: 'var(--accent)', fontFamily: 'var(--mono)' }}>
+                {fmtPriceFull(selected.appraisal_price)}
               </div>
+
+              {/* ราคาที่ดิน */}
               {selected.land_price_per_sqw > 0 && (
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginTop: 2 }}>
-                  ราคาที่ดิน {fmtPrice(selected.land_price_per_sqw)}/ตร.วา
+                  ราคาที่ดิน {fmtPriceFull(selected.land_price_per_sqw)} / ตร.วา
                 </div>
               )}
             </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-              <Link
-                to={`/property/${selected.id}`}
-                style={{
-                  display: 'block', padding: '6px 14px', background: 'var(--accent)',
-                  color: '#fff', borderRadius: 'var(--r-sm)', fontSize: '0.82rem',
-                  fontWeight: 600, textAlign: 'center',
-                }}
-              >
+              <Link to={`/property/${selected.id}`}
+                style={{ display: 'block', padding: '7px 16px',
+                  background: 'var(--accent)', color: '#fff',
+                  borderRadius: 'var(--r-sm)', fontSize: '0.82rem',
+                  fontWeight: 700, textAlign: 'center' }}>
                 รายละเอียด
               </Link>
-              <button
-                onClick={() => setSelected(null)}
-                style={{
-                  padding: '5px 14px', background: 'none', border: '1px solid var(--border)',
-                  borderRadius: 'var(--r-sm)', fontSize: '0.8rem', color: 'var(--text-3)',
-                  cursor: 'pointer',
-                }}
-              >ปิด</button>
+              <button onClick={() => setSelected(null)}
+                style={{ padding: '6px 16px', background: 'none',
+                  border: '1.5px solid var(--border)', borderRadius: 'var(--r-sm)',
+                  fontSize: '0.8rem', color: 'var(--text-3)', cursor: 'pointer' }}>
+                ปิด
+              </button>
             </div>
           </div>
         )}

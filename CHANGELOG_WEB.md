@@ -7,6 +7,65 @@
 
 ---
 
+## 2026.07.18-1
+
+### Fixed — Location: ใช้ deed fields เป็นหลักทุกหน้า + ราคาเต็มใน GIS Map
+
+#### Schema (`0011_add_deed_fields_to_assets_map.sql`)
+- `[schema]` migration `0011` — เพิ่ม `deedcity`, `deedampur`, `deedtumbol` เข้า `assets_map` view
+  เหตุผล: view เดิมมีแค่ `city/ampur/tumbol` (ที่อยู่จริง) ซึ่งหลายรายการว่างเปล่า
+  ทำให้ frontend ไม่สามารถ fallback ไป deed fields ได้เมื่อ query จาก assets_map
+
+#### utils.js — เพิ่ม `fmtLocation()`
+- `[utils]` เพิ่ม `fmtLocation(p)` — deed first, fallback city/ampur/tumbol
+  ```js
+  deedtumbol || tumbol → deedampur || ampur → deedcity || city
+  ```
+  ใช้ร่วมกันใน PropertyCard, LeafletMap, DetailPage, MapPage
+
+#### PropertyCard — deed location + badge สีชมพู
+- `[PropertyCard]` location บรรทัดใช้ `fmtLocation(p)` แทน manual join
+- `[PropertyCard]` badge "📍 แสดงพิกัด" เปลี่ยนสีจากฟ้า → **ชมพู** (`#BE185D / #FDF2F8`)
+- `[index.css]` override `.coord-badge` ทั้ง light และ dark mode เป็นสีชมพู
+
+#### LeafletMap — tooltip deed location
+- `[LeafletMap]` tooltip แสดง `fmtLocation(p)` แทน `p.city / p.ampur`
+- `[LeafletMap]` ลบ "— {city}" หลังชื่อประเภท ให้ tooltip กระชับขึ้น
+
+#### DetailPage — title + location + badge
+- `[DetailPage]` title เปลี่ยนจาก `"ห้องชุด — -, -"` → `"ห้องชุด"` (ลบ city/ampur ออก)
+- `[DetailPage]` location ใช้ `fmtLocation(asset)` (deed first)
+- `[DetailPage]` เพิ่ม badge `📍 แสดงพิกัด` สีชมพูใน hero badges เมื่อ `mapPt?.latitude` มีค่า
+
+#### SearchPage — deed fields ใน query
+- `[SearchPage]` เพิ่ม `deedcity,deedampur,deedtumbol` ใน `assets` select query
+  เพื่อให้ PropertyCard มีข้อมูลครบสำหรับ `fmtLocation()`
+- `[SearchPage]` แก้ `fetchMapPts` select จาก `assetprice3` → `appraisal_price`
+  (field ใน assets_map ใช้ชื่อ alias `appraisal_price` ไม่ใช่ `assetprice3`)
+- `[SearchPage]` เพิ่ม `deedcity,deedampur,deedtumbol` ใน map points select
+
+#### MapPage — deed fields + ราคาเต็ม
+- `[MapPage]` เพิ่ม `deedcity,deedampur,deedtumbol` ใน assets_map select
+- `[MapPage]` popup ที่อยู่ใช้ `fmtLocation(selected)` แทน `selected.ampur, selected.city`
+- `[MapPage]` ราคาใน popup เปลี่ยนจาก `fmtPrice` → `fmtPriceFull` แสดงเลขเต็ม
+  เช่น `506,371 ฿` แทน `506 K ฿`
+- `[MapPage]` แก้ price field จาก `selected.assetprice3` → `selected.appraisal_price`
+
+---
+
+## 2026.07.14-2
+
+### Fixed — Dashboard: province_summary view + DashboardPage query
+
+- `[schema]` migration `0010_fix_province_summary_view.sql` — DROP และ recreate view ใหม่
+  group by เฉพาะ `led_province_id, led_province_name` (ตัด `city` ออก)
+  ต้อง drop `assets_map` และ `auction_today` ก่อนเพราะ Postgres ไม่ให้ลบ column จาก view
+  แล้วสร้างคืนทั้ง 3 view พร้อม GRANT SELECT to anon
+- `[DashboardPage]` แก้ query จาก `select('city, ...')` → `select('led_province_name, ...')`
+- `[DashboardPage]` แก้ key และ display จาก `p.city` → `p.led_province_name`
+
+---
+
 ## 2026.07.14-1
 
 ### Fixed — Dashboard: ทรัพย์ตามจังหวัด แสดงข้อมูลซ้ำและไม่ครบ

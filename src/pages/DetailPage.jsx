@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import LeafletMap from '../components/LeafletMap.jsx'
 import {
-  fmtPriceFull, fmtArea, fmtDate,
+  fmtPriceFull, fmtArea, fmtDate, fmtLocation,
   typeClass, typeLabel, statusInfo, issaleInfo,
   calcDiscount, discountClass,
 } from '../lib/utils.js'
@@ -113,7 +113,7 @@ export default function DetailPage() {
   const tc = typeClass(asset.asset_type_id)
   const tl = typeLabel(asset.asset_type_id, asset.asset_type_desc)
 
-  const location     = [asset.tumbol, asset.ampur, asset.city].filter(Boolean).join(' › ')
+  const location     = fmtLocation(asset)
   const deedLocation = [asset.deedtumbol, asset.deedampur, asset.deedcity].filter(Boolean).join(' › ')
 
   // ราคาประมูลล่าสุด: ใช้ assetprice3 เป็น appraisal, ไม่มีราคาประมูลจาก bid rounds แล้ว
@@ -166,10 +166,11 @@ export default function DetailPage() {
                           borderRadius: 4, fontWeight: 600,
                         }}>{asset.saletypename}</span>
                       )}
+                      {mapPt?.latitude && (
+                        <span className="coord-badge">📍 แสดงพิกัด</span>
+                      )}
                     </div>
-                    <div className="detail-title">
-                      {tl} — {asset.city}{asset.ampur ? `, ${asset.ampur}` : ''}
-                    </div>
+                    <div className="detail-title">{tl}</div>
                     <div className="detail-location">📍 {location}</div>
                     {deedLocation && deedLocation !== location && (
                       <div style={{ fontSize: '0.82rem', color: 'var(--text-3)' }}>
