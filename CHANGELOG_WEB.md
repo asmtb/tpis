@@ -7,6 +7,34 @@
 
 ---
 
+## 2026.07.28-1
+
+### Changed — Map: pin 4 สี + NEW badge + popup พื้นที่ + Option C
+
+#### LeafletMap.jsx — pin logic ใหม่ 5 ระดับ
+- `[LeafletMap]` เปลี่ยนจาก 3 สี → 5 สี ตาม priority:
+  1. 🔴 แดง — ขายแล้ว
+  2. ⚫ เทา — ปิดแล้ว
+  3. 🟢 เขียวอ่อน + **N** — ใหม่ ≤7 วัน (latest_round_no IS NULL + ischeck_date ≤ 7 วัน)
+  4. 🟢 เขียวเข้ม — ยังไม่เคยประมูล (latest_round_no IS NULL)
+  5. 🔵 น้ำเงิน — เปิดประมูลแล้ว
+- `[LeafletMap]` pin สีเขียวใช้ DivIcon แสดงตัว "N" ตรงกลาง + CSS pulse animation
+- `[LeafletMap]` Tooltip แสดง NEW badge สำหรับรายการใหม่
+
+#### SearchPage.jsx
+- `[SearchPage]` fetchMapPts select เพิ่ม latest_round_no, ischeck_date
+- `[SearchPage]` limit เพิ่มจาก 1000 → 3000
+
+#### MapPage.jsx
+- `[MapPage]` select เพิ่ม rai, ngan, wa, ischeck_date, latest_round_no
+- `[MapPage]` Legend เพิ่มเป็น 5 แถวตาม pin color logic ใหม่
+- `[MapPage]` popup แสดง **พื้นที่** (fmtArea) แทนราคาที่ดินกรมที่ดิน
+- `[MapPage]` **Option C** — กด marker ที่มีหลาย asset พิกัดเดียวกัน แสดง list ทั้งหมด
+  แต่ละรายการมี: รูป, ประเภท, สถานะ, NEW badge, พื้นที่, ราคา, ปุ่ม "ดู" → detail page
+  detect โดยเช็ค lat/lng ห่างกันไม่เกิน 0.00001 องศา
+
+---
+
 ## 2026.07.18-2
   
 ### Fixed - badge พิกัด ในหน้า detailpage + เพิ่ม limit สำหรับ badge ที่ไม่แสดงสำหรับบาง not_verified

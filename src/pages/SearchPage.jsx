@@ -45,8 +45,12 @@ function buildQuery(f, offset = 0) {
 async function fetchMapPts(f) {
   let q = supabase
     .from('assets_map')
-    .select('id,city,ampur,tumbol,deedcity,deedampur,deedtumbol,' +
-            'asset_type_id,asset_type_desc,appraisal_price,is_sold,is_closed,latitude,longitude')
+    .select(
+      'id,city,ampur,tumbol,deedcity,deedampur,deedtumbol,' +
+      'asset_type_id,asset_type_desc,appraisal_price,' +
+      'is_sold,is_closed,latest_round_no,ischeck_date,' +
+      'latitude,longitude'
+    )
     .not('latitude', 'is', null)
     .limit(3000)
   if (f.city)          q = q.eq('city', f.city)
@@ -148,7 +152,7 @@ export default function SearchPage() {
             <div className="results-count">
               {loading ? 'กำลังโหลด...' : (
                 <>พบ <strong>{total.toLocaleString()}</strong> รายการ
-                  {page > 1 && <span style={{ color: 'var(--text-3)' }}> · หน้า {page}/{totalPages}</span>}
+                  {page > 1 && <span style={{ color:'var(--text-3)' }}> · หน้า {page}/{totalPages}</span>}
                 </>
               )}
             </div>
@@ -172,9 +176,7 @@ export default function SearchPage() {
                 <p>เกิดข้อผิดพลาด: {error}</p>
               </div>
             )}
-            {!initDone && !error && (
-              <div className="state-box"><div className="dots"><span/><span/><span/></div></div>
-            )}
+            {!initDone && !error && <div className="state-box"><div className="dots"><span/><span/><span/></div></div>}
             {initDone && !loading && !error && items.length === 0 && (
               <div className="state-box">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -182,7 +184,7 @@ export default function SearchPage() {
                   <polyline points="9 22 9 12 15 12 15 22"/>
                 </svg>
                 <p>ไม่พบทรัพย์ที่ตรงกับเงื่อนไข</p>
-                <button className="filter-reset-btn" style={{ width: 'auto', padding: '7px 20px' }}
+                <button className="filter-reset-btn" style={{ width:'auto', padding:'7px 20px' }}
                   onClick={handleReset}>ล้างตัวกรองทั้งหมด</button>
               </div>
             )}
@@ -194,7 +196,7 @@ export default function SearchPage() {
                 <button className="pg-btn" onClick={() => handlePage(page - 1)} disabled={page === 1}>←</button>
                 {pageBtns(page, totalPages).map((n, i) =>
                   n === '…'
-                    ? <span key={`e${i}`} style={{ padding: '5px 4px', color: 'var(--text-3)' }}>…</span>
+                    ? <span key={`e${i}`} style={{ padding:'5px 4px', color:'var(--text-3)' }}>…</span>
                     : <button key={n} className={`pg-btn${n === page ? ' active' : ''}`}
                         onClick={() => handlePage(n)}>{n}</button>
                 )}
