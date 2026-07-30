@@ -7,6 +7,49 @@
 
 ---
 
+## 2026.07.31-1
+
+### Changed — Search & Filter: ครบทุก feature ที่ค้าง
+
+#### useGeoFilter.js (ใหม่) — `src/hooks/useGeoFilter.js`
+- `[hook]` shared custom hook สำหรับ cascading dropdown จังหวัด → อำเภอ → ตำบล
+  ใช้ร่วมกันทั้ง SearchFilters และ MapPage ไม่ต้องเขียน fetch logic ซ้ำ
+  - `useGeoFilter(ledProvinceId, districtId)` → `{ districts, subdistricts, loadingDist, loadingSub }`
+  - fetch districts เมื่อ `ledProvinceId` เปลี่ยน จาก `th_provinces → th_districts`
+  - fetch subdistricts เมื่อ `district_id` เปลี่ยน จาก `th_subdistricts`
+
+#### SearchFilters.jsx — เพิ่ม dropdown ตำบล (ระดับ 3)
+- `[SearchFilters]` ใช้ `useGeoFilter` hook แทนการ fetch ใน component โดยตรง
+- `[SearchFilters]` เพิ่ม dropdown ตำบล cascade จากอำเภอ
+  filter state เพิ่ม `district_id` (ส่งต่อให้ hook fetch subdistricts) และ `tumbol` (ชื่อ ส่งไป query)
+- `[SearchFilters]` reset `district_id` และ `tumbol` เมื่อเปลี่ยนจังหวัด
+  reset `tumbol` เมื่อเปลี่ยนอำเภอ
+
+#### SearchPage.jsx — sync map + deed filter + sort + page size
+- `[SearchPage]` **Pin sync กับผลค้นหา** — `fetchMapPts` ส่ง filter ครบทุกตัว:
+  `ampur`, `tumbol`, `price_min`, `price_max`, `q`, `status`
+- `[SearchPage]` **Filter ค้นจาก deed fields** — เปลี่ยนจาก `.eq('city', f.city)` →
+  `.or('city.eq.X,deedcity.eq.X')` ทั้ง city, ampur, tumbol
+  ทำให้ค้นหาได้แม้ทรัพย์มีข้อมูลเฉพาะ deed fields
+- `[SearchPage]` **Items per page selector** — dropdown 10/20/30/50 ต่อหน้า
+  ใน results bar ด้านซ้ายของ sort selector
+- `[SearchPage]` **Sort options เพิ่ม 4 รายการ:**
+  - พื้นที่มากสุด / น้อยสุด (`rai.desc` / `rai.asc`)
+  - ผ่านนัดมากสุด / นัดน้อยสุด (`latest_round_no.desc` / `.asc`)
+- `[SearchPage]` filter state เพิ่ม `district_id`, `tumbol`
+- `[SearchPage]` global search `q` เพิ่ม `deedcity` ใน `.or()`
+
+#### MapPage.jsx — filter ครบเหมือน SearchPage
+- `[MapPage]` ใช้ `useGeoFilter` hook เพิ่ม dropdown อำเภอ + ตำบล cascade
+- `[MapPage]` Filter ใหม่ 2 ตัว (checkbox):
+  - ✅ **ใหม่ ≤7 วัน** — `ischeck_date >= now()-7days`
+  - ✅ **ยังไม่เคยประมูล** — `latest_round_no IS NULL`
+- `[MapPage]` Filter ราคาประเมิน min/max + preset < 1M / 3M / 5M
+- `[MapPage]` Filter city/ampur/tumbol ค้นจาก deed fields ด้วย `.or()`
+- `[MapPage]` Legend ย้ายลง bottom ของ sidebar ให้ filter อยู่บน
+
+---
+
 ## 2026.07.28-1
 
 ### Changed — Map: pin 4 สี + NEW badge + popup พื้นที่ + Option C
