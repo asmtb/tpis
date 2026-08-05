@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { fmtNum, fmtDateTime, fmtRelative } from '../lib/utils.js'
+import { fmtNum, fmtDateTime, fmtRelative, fmtPrice } from '../lib/utils.js'
+
+/** run เป็นรอบ LED หรือไม่ (มีแค่รอบ LED เท่านั้นที่มีแนวคิด "รายการใหม่" ของ assets) */
+const isLedRun = (r) => r.run_mode === 'led' || r.run_mode === 'upload' || !r.run_mode
 
 export default function AdminPage() {
   const [runs, setRuns]             = useState([])
@@ -12,6 +15,12 @@ export default function AdminPage() {
   const [uploadMsg, setUploadMsg]   = useState(null)
   const [cookieText, setCookieText] = useState('')
 
+  // รายการใหม่ต่อรอบ — modal ดูรายละเอียด
+  const [newModalRun, setNewModalRun]     = useState(null)
+  const [newAssets, setNewAssets]         = useState([])
+  const [newAssetsLoading, setNewLoading] = useState(false)
+  const [newAssetsError, setNewError]     = useState(null)
+
   useEffect(() => {
     async function load() {
       try {
@@ -22,7 +31,7 @@ export default function AdminPage() {
           { count: withCoords },
         ] = await Promise.all([
           supabase.from('crawler_runs')
-            .select('id, started_at, finished_at, status, run_mode, total_records_fetched, total_provinces_success, total_provinces_failed, duration_sec, code_version, error_message, triggered_by')
+            .select('id, started_at, finished_at, status, run_mode, total_records_fetched, total_records_new, total_provinces_success, total_provinces_failed, duration_sec, code_version, error_message, triggered_by')
             .order('started_at', { ascending: false })
             .limit(15),
           supabase.from('landsmaps_sessions')
@@ -86,6 +95,48 @@ export default function AdminPage() {
     } finally {
       setUploading(false)
     }
+  }
+
+  /** เปิด modal ดูรายการ asset ใหม่ของรอบนั้นๆ
+   *  "ใหม่" = assets.created_at อยู่ในช่วง [started_at, finished_at] ของ run
+   *  (created_at ตั้งครั้งเดียวตอน insert แรก ไม่ถูกเขียนทับตอน upsert ซ้ำ) */
+  const openNewItems = async (run) => {
+    setNewModalRun(run)
+    setNewLoading(true)
+    setNewError(null)
+    setNewAssets([])
+    try {
+      const gte = run.started_at
+      const lte = run.finished_at || new Date().toISOString()
+      const { data, error, count } = await supabase
+        .from('assets')
+        .select(
+          'id, str_bid_num, city, ampur, tumbol, asset_type_desc, assetprice3, led_province_name, url_picture, created_at',
+          { count: 'exact' }
+        )
+        .gte('created_at', gte)
+        .lte('created_at', lte)
+        .order('created_at', { ascending: false })
+        .limit(500)
+
+      if (error) throw error
+      setNewAssets(data || [])
+
+      // รอบเก่าที่ยังไม่มี total_records_new ใน DB (deploy ก่อนหน้านี้) — เติมค่าจาก query จริงแทน
+      if (run.total_records_new == null && count != null) {
+        setRuns(prev => prev.map(x => (x.id === run.id ? { ...x, total_records_new: count } : x)))
+      }
+    } catch (e) {
+      setNewError(e.message)
+    } finally {
+      setNewLoading(false)
+    }
+  }
+
+  const closeNewItems = () => {
+    setNewModalRun(null)
+    setNewAssets([])
+    setNewError(null)
   }
 
   if (loading) return (
@@ -300,6 +351,7 @@ export default function AdminPage() {
                   <th>Mode</th>
                   <th>สถานะ</th>
                   <th>Records</th>
+                  <th>รายการใหม่</th>
                   <th>จังหวัด</th>
                   <th>เวลา</th>
                   <th>Version</th>
@@ -322,6 +374,18 @@ export default function AdminPage() {
                       </span>
                     </td>
                     <td style={{ fontFamily: 'var(--mono)' }}>{fmtNum(r.total_records_fetched)}</td>
+                    <td>
+                      {isLedRun(r) && (r.status === 'completed' || r.status === 'partial') ? (
+                        <button
+                          className="abtn secondary new-items-btn"
+                          onClick={() => openNewItems(r)}
+                        >
+                          {r.total_records_new != null ? `+${fmtNum(r.total_records_new)}` : 'ดูรายการ'}
+                        </button>
+                      ) : (
+                        <span style={{ color: 'var(--text-3)' }}>—</span>
+                      )}
+                    </td>
                     <td style={{ fontFamily: 'var(--mono)' }}>
                       {r.total_provinces_success != null
                         ? `${r.total_provinces_success}/${(r.total_provinces_success || 0) + (r.total_provinces_failed || 0)}`
@@ -340,6 +404,79 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+
+      {/* Modal: รายการ asset ใหม่ของรอบที่เลือก */}
+      {newModalRun && (
+        <div className="lightbox-overlay" style={{ cursor: 'default' }} onClick={closeNewItems}>
+          <div className="new-items-modal" onClick={e => e.stopPropagation()}>
+            <div className="new-items-modal-hd">
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+                  รายการใหม่ — {fmtDateTime(newModalRun.started_at)}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>
+                  {newAssetsLoading
+                    ? 'กำลังโหลด...'
+                    : `พบ ${fmtNum(newModalRun.total_records_new ?? newAssets.length)} รายการ`}
+                </div>
+              </div>
+              <button className="abtn secondary" onClick={closeNewItems}>ปิด</button>
+            </div>
+            <div className="new-items-modal-body">
+              {newAssetsLoading && (
+                <div className="state-box" style={{ padding: '30px 0' }}>
+                  <div className="dots"><span/><span/><span/></div>
+                </div>
+              )}
+              {newAssetsError && <div className="alert error">{newAssetsError}</div>}
+              {!newAssetsLoading && !newAssetsError && newAssets.length === 0 && (
+                <div style={{ color: 'var(--text-3)', fontSize: '0.875rem', padding: '20px 0' }}>
+                  ไม่มีรายการใหม่ในรอบนี้
+                </div>
+              )}
+              {!newAssetsLoading && newAssets.length > 0 && (
+                <>
+                  <table className="runs-table">
+                    <thead>
+                      <tr>
+                        <th>เลขที่</th>
+                        <th>จังหวัด</th>
+                        <th>อำเภอ / ตำบล</th>
+                        <th>ประเภท</th>
+                        <th>ราคาประเมิน</th>
+                        <th>เพิ่มเมื่อ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {newAssets.map(a => (
+                        <tr key={a.id}>
+                          <td style={{ fontFamily: 'var(--mono)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                            {a.str_bid_num || '—'}
+                          </td>
+                          <td>{a.led_province_name || a.city || '—'}</td>
+                          <td style={{ fontSize: '0.8rem', color: 'var(--text-2)' }}>
+                            {[a.ampur, a.tumbol].filter(Boolean).join(' / ') || '—'}
+                          </td>
+                          <td style={{ fontSize: '0.8rem' }}>{a.asset_type_desc || '—'}</td>
+                          <td style={{ fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>{fmtPrice(a.assetprice3)}</td>
+                          <td style={{ fontFamily: 'var(--mono)', fontSize: '0.72rem', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
+                            {fmtDateTime(a.created_at)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {newAssets.length === 500 && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-3)', marginTop: 10 }}>
+                      แสดง 500 รายการแรก — อาจมีมากกว่านี้จริง
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Info box */}
       <div className="alert info">

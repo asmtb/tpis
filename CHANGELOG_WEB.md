@@ -7,6 +7,17 @@
 
 ---
 
+## 2026.08.05-1
+
+### Changed — AdminPage show new list for each new crawler run
+
+#### AdminPage.jsx + index.css
+- ตาราง Crawler Runs เพิ่มคอลัมน์ "รายการใหม่" — ปุ่มสีเขียวโชว์ตัวเลขจาก `total_records_new` (หรือ "ดูรายการ" ถ้ายังไม่มีค่าเก่า)
+- กดปุ่ม → เปิด modal query `assets` ตรงจาก Supabase (`created_at` อยู่ในช่วงของ run นั้น) แสดงเป็นตาราง เลขที่/จังหวัด/อำเภอ-ตำบล/ประเภท/ราคาประเมิน/เวลาที่เพิ่ม (limit 500 กันโหลดหนัก)
+- ไม่ต้องเพิ่ม backend endpoint ใหม่ เพราะ RLS + GRANT ให้ `anon` อ่าน `assets` ได้อยู่แล้ว (migration 0007/0008)
+
+---
+
 ## 2026.08.02-1
 
 ### Changed — SearchPage Redesign: Layout + View Modes + Responsive
