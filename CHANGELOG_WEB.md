@@ -7,6 +7,78 @@
 
 ---
 
+## 2026.08.11-1
+
+### Added — AdminPage: modal "รายการใหม่" ต่อ crawler run
+
+- `[AdminPage]` ตาราง Crawler Runs เพิ่มคอลัมน์ "รายการใหม่" — ปุ่มสีเขียวโชว์ตัวเลขจาก
+  `crawler_runs.total_records_new` (query field ใหม่) หรือ "ดูรายการ" ถ้ารอบนั้นยังไม่มี
+  ค่านี้ใน DB (deploy ก่อนหน้า `led_uploader.py` เวอร์ชันที่เซ็ตค่าคอลัมน์นี้)
+- `[AdminPage]` `isLedRun()` helper กรองให้ปุ่มนี้โชว์เฉพาะรอบ LED/upload เท่านั้น
+  (รอบ landsmaps ไม่มีแนวคิด "รายการใหม่" ของ assets)
+- `[AdminPage]` กดปุ่ม → เปิด modal query ตรงจาก Supabase (`assets.created_at` อยู่ใน
+  ช่วง `started_at`–`finished_at` ของ run นั้น) ไม่ต้องเพิ่ม backend endpoint เพราะ RLS
+  + GRANT ให้ `anon` อ่าน `assets` ได้อยู่แล้ว (migration `0007`/`0008`)
+- `[AdminPage]` รอบเก่าที่ `total_records_new` เป็น `null` — เปิด modal ครั้งแรกแล้วเติม
+  ค่านี้เข้า state ทันทีจาก `count: 'exact'` ของ query จริง (โชว์ตัวเลขถูกต้องโดยไม่ต้อง
+  รอ backend อัพเดต)
+
+### Added — modal: คอลัมน์ลำดับ / ที่ตั้งตามโฉนด / ราคาเต็ม
+
+- `[AdminPage]` เพิ่มคอลัมน์ `#` (ลำดับรายการ) เป็นคอลัมน์แรกสุด
+- `[AdminPage]` ที่ตั้งเปลี่ยนจาก `city/ampur/tumbol` (ที่ตั้งจริง) เป็น
+  `led_province_name` / `deedampur` / `deedtumbol` (ที่ตั้งตามโฉนด — ตรงกับที่ใช้เทียบ
+  พิกัดกับ LandsMaps จริงๆ)
+- `[AdminPage]` `fmtBahtExact()` — ราคาประเมินแสดงจำนวนเต็มจริงมีคอมม่าคั่นหลัก
+  (เช่น `1,520,000 ฿`) เลิกย่อเป็น "ล้าน"/"K" แบบเดิม
+
+### Added — modal: คอลัมน์เลขโฉนด + Lat/Long พร้อม sub-row ขยายดูรายแปลง
+
+- `[AdminPage]` คอลัมน์ "เลขโฉนด" ดึงจาก `assets.deedno` (array ที่ parse แล้ว) แทน
+  `deedno_raw` (string ดิบ) — ยังคง select `deedno_raw` ไว้ใน query เพื่อ export ให้
+  `landsmaps_collector_local.py` ใช้ parse ต่อ (ไม่ได้ใช้แสดงผลอีกต่อไป)
+- `[AdminPage]` เพิ่มคอลัมน์ "Lat" / "Long" ต่อจากคอลัมน์เลขโฉนด — ดึงจากตาราง `parcels`
+  ผ่าน `asset_parcels` (join ตรง `parcelno === deedno`), แบ่ง query เป็น chunk ละ 200
+  asset id กัน URL ยาวเกินตอน asset เยอะ (`fetchParcelsForAssets()`)
+- `[AdminPage]` asset ที่มีโฉนดเดียว → โชว์ lat/long ในแถวหลักได้เลย
+- `[AdminPage]` asset ที่มีหลายโฉนด → คอลัมน์เลขโฉนดกลายเป็นปุ่มกดได้ (`.deedno-cell.clickable`)
+  โชว์ "N แปลง (…)" แถวหลัก lat/long เป็น "—" (มีได้หลายค่า ใส่แถวเดียวไม่ได้) — กดแล้ว
+  ขยายเป็น sub-row (`.deedno-subrow`) แทรกใต้แถวนั้น ทีละแปลง พร้อม lat/long ของมัน
+  ขยายได้พร้อมกันหลายแถว (เก็บ state เป็น `Set` ของ asset id ที่เปิดอยู่)
+- `[AdminPage]` แปลงที่ยังไม่เคยรัน landsmaps ให้ ไม่ว่าจะแถวหลักหรือ sub-row จะโชว์ lat/long
+  เป็น "—" — ใช้เช็คได้ตรงๆ ว่า export JSON ไปรันรอบไหนแล้วดึงพิกัดมาได้ครบหรือยัง
+
+### Added — Export JSON
+
+- `[AdminPage]` ปุ่ม "⬇ Export JSON" วางคู่กับปุ่ม "ปิด" มุมขวาบนของ modal
+- `[AdminPage]` `exportNewAssetsJson()` — query **ทุกแถวจริง** ของรอบนั้น (ไม่ตัดที่ 500
+  แบบตาราง preview ในหน้าจอ) แบ่งหน้าด้วย `.range()` กัน PostgREST cap ที่ 1,000
+  แถว/ครั้ง แล้ว trigger download ผ่าน `Blob` + `URL.createObjectURL`
+- `[AdminPage]` field ที่ export (`NEW_ASSETS_FIELDS`) ตรงกับที่
+  `landsmaps_supabase.get_new_assets()` ฝั่ง backend ใช้อยู่แล้วพอดี — เอาไฟล์ไปรันกับ
+  `landsmaps_collector_local.py --file <ไฟล์นี้>` ได้ทันทีไม่ต้องแปลง field เพิ่ม
+- `[AdminPage]` ชื่อไฟล์ที่ export: `tpis_new_assets_run{run_id}_{วันที่ started_at}.json`
+  ข้างในมี `run_id`, `started_at`, `finished_at`, `exported_at`, `total`, `assets`
+
+### Changed — index.css
+
+- `[index.css]` `.new-items-modal` ขยายความกว้างจาก `max-width: 820px; width: 92vw` เป็น
+  `max-width: 1880px; width: 97vw` (เกือบเต็มจอ ให้เห็นคอลัมน์ lat/long ได้สบาย) และ
+  `max-height` จาก `82vh` เป็น `90vh`
+- `[index.css]` เพิ่ม `.abtn.new-items-btn` (สีเขียว) ให้ specificity เท่ากับ
+  `.abtn.secondary` เดิมและมาทีหลังใน stylesheet เพื่อ override สีให้ถูกต้อง
+- `[index.css]` เพิ่ม `.deedno-cell.clickable` (hover highlight, cursor pointer) และ
+  `.deedno-subrow` / `.deedno-subrow-spacer` / `.deedno-subrow-value` สำหรับแถวย่อยที่
+  ขยายดูพิกัดรายแปลง
+
+### Workflow ที่ได้จากการแก้รอบนี้
+
+เปิดหน้า Admin → LED run เสร็จ → กดดู "รายการใหม่" → กด Export JSON → เอาไฟล์ไปรัน
+`landsmaps_collector_local.py --file <ไฟล์>` บนเครื่อง (ดู `CHANGELOG_110826.md` ฝั่ง
+backend) → กลับมาเปิด modal เดิมอีกครั้ง (เปิดใหม่ = query สด) เพื่อเช็คว่าเลขโฉนดไหนดึง
+พิกัดมาได้แล้วบ้าง โดยไม่ต้องออกไปเปิด SQL Editor หรือดูจากที่อื่น
+---
+
 ## 2026.08.05-1
 
 ### Changed — AdminPage show new list for each new crawler run

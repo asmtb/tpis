@@ -1,9 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { fmtNum, fmtDateTime, fmtRelative, fmtPrice } from '../lib/utils.js'
+import { fmtNum, fmtDateTime, fmtRelative } from '../lib/utils.js'
 
 /** run เป็นรอบ LED หรือไม่ (มีแค่รอบ LED เท่านั้นที่มีแนวคิด "รายการใหม่" ของ assets) */
 const isLedRun = (r) => r.run_mode === 'led' || r.run_mode === 'upload' || !r.run_mode
+
+/** ราคาแบบจำนวนเต็มจริง มีคอมม่าคั่นหลัก ไม่ย่อเป็นล้าน/K */
+const fmtBahtExact = (n) => (n == null ? '—' : `${Number(n).toLocaleString('en-US')} ฿`)
+
+/** พิกัดจาก parcels — โชว์ทศนิยม 6 ตำแหน่ง, ว่างไว้ "—" ถ้ายังไม่มี (ยังไม่ได้รัน landsmaps) */
+const fmtLatLng = (v) => (v == null ? '—' : Number(v).toFixed(6))
 
 export default function AdminPage() {
   const [runs, setRuns]             = useState([])
@@ -20,6 +26,12 @@ export default function AdminPage() {
   const [newAssets, setNewAssets]         = useState([])
   const [newAssetsLoading, setNewLoading] = useState(false)
   const [newAssetsError, setNewError]     = useState(null)
+  const [exporting, setExporting]         = useState(false)
+  // พิกัดของแต่ละ asset (asset_id -> [{parcelno, latitude, longitude}]) — มาจาก parcels
+  // ผ่าน asset_parcels, ยังไม่มีถ้า asset นั้นยังไม่เคยรัน landsmaps
+  const [parcelsByAsset, setParcelsByAsset]     = useState({})
+  // asset ไหนที่กด "เลขโฉนด" ขยายดู sub-row พิกัดรายแปลงอยู่บ้าง (รองรับขยายได้หลายแถวพร้อมกัน)
+  const [expandedDeedRows, setExpandedDeedRows] = useState(() => new Set())
 
   useEffect(() => {
     async function load() {
@@ -97,6 +109,38 @@ export default function AdminPage() {
     }
   }
 
+  /** field ที่ query มาโชว์ในตาราง + ใช้ export ให้ landsmaps collector ได้เลย
+   *  (ตรงกับที่ landsmaps_supabase.get_new_assets() ดึงปกติ) */
+  const NEW_ASSETS_FIELDS =
+    'id, str_bid_num, led_province_id, led_province_name, city, ampur, ' +
+    'deedcity, deedampur, deedtumbol, deedno, deedno_raw, deedno_count, ' +
+    'asset_type_id, asset_type_desc, assetprice3, rai, ngan, wa, url_picture, created_at'
+
+  /** ดึงพิกัดของ asset ชุดนี้จาก parcels (ผ่าน asset_parcels) เป็น map asset_id -> parcels[]
+   *  แบ่ง chunk กัน URL ยาวเกินตอน asset เยอะ (.in() หลายร้อย id) */
+  const fetchParcelsForAssets = async (assetIds) => {
+    const map = {}
+    const chunkSize = 200
+    for (let i = 0; i < assetIds.length; i += chunkSize) {
+      const chunk = assetIds.slice(i, i + chunkSize)
+      const { data, error } = await supabase
+        .from('asset_parcels')
+        .select('asset_id, parcels(parcelno, latitude, longitude)')
+        .in('asset_id', chunk)
+      if (error) throw error
+      for (const row of data || []) {
+        if (!row.parcels) continue
+        if (!map[row.asset_id]) map[row.asset_id] = []
+        map[row.asset_id].push({
+          parcelno:  row.parcels.parcelno,
+          latitude:  row.parcels.latitude,
+          longitude: row.parcels.longitude,
+        })
+      }
+    }
+    return map
+  }
+
   /** เปิด modal ดูรายการ asset ใหม่ของรอบนั้นๆ
    *  "ใหม่" = assets.created_at อยู่ในช่วง [started_at, finished_at] ของ run
    *  (created_at ตั้งครั้งเดียวตอน insert แรก ไม่ถูกเขียนทับตอน upsert ซ้ำ) */
@@ -105,15 +149,14 @@ export default function AdminPage() {
     setNewLoading(true)
     setNewError(null)
     setNewAssets([])
+    setParcelsByAsset({})
+    setExpandedDeedRows(new Set())
     try {
       const gte = run.started_at
       const lte = run.finished_at || new Date().toISOString()
       const { data, error, count } = await supabase
         .from('assets')
-        .select(
-          'id, str_bid_num, city, ampur, tumbol, asset_type_desc, assetprice3, led_province_name, url_picture, created_at',
-          { count: 'exact' }
-        )
+        .select(NEW_ASSETS_FIELDS, { count: 'exact' })
         .gte('created_at', gte)
         .lte('created_at', lte)
         .order('created_at', { ascending: false })
@@ -126,6 +169,17 @@ export default function AdminPage() {
       if (run.total_records_new == null && count != null) {
         setRuns(prev => prev.map(x => (x.id === run.id ? { ...x, total_records_new: count } : x)))
       }
+
+      // ดึงพิกัด — ถ้ายังไม่เคยรัน landsmaps ให้ asset ชุดนี้ จะได้ map ว่างๆ กลับมา
+      // (ไม่ throw ให้ modal เปิดไม่ได้ทั้งที่รายการหลักโหลดสำเร็จแล้ว)
+      const ids = (data || []).map(x => x.id)
+      if (ids.length) {
+        try {
+          setParcelsByAsset(await fetchParcelsForAssets(ids))
+        } catch (pe) {
+          console.error('โหลดพิกัด parcels ไม่สำเร็จ:', pe)
+        }
+      }
     } catch (e) {
       setNewError(e.message)
     } finally {
@@ -133,10 +187,73 @@ export default function AdminPage() {
     }
   }
 
+  const toggleDeedExpand = (assetId) => {
+    setExpandedDeedRows(prev => {
+      const next = new Set(prev)
+      if (next.has(assetId)) next.delete(assetId)
+      else next.add(assetId)
+      return next
+    })
+  }
+
   const closeNewItems = () => {
     setNewModalRun(null)
     setNewAssets([])
     setNewError(null)
+    setParcelsByAsset({})
+    setExpandedDeedRows(new Set())
+  }
+
+  /** Export รายการใหม่ทั้งหมดของรอบนี้เป็นไฟล์ JSON — ดึงทุกแถวจริง (ไม่ตัดที่ 500
+   *  แบบตอนโชว์ในตาราง) แบ่งหน้าด้วย .range() กันโดน PostgREST cap ที่ 1,000 แถว/ครั้ง
+   *  field ที่ได้ตรงกับที่ landsmaps_collector_local.py ต้องใช้ ให้เอาไฟล์นี้ไปรัน
+   *  บนเครื่องตัวเองด้วย: python landsmaps_collector_local.py --file <ไฟล์นี้> */
+  const exportNewAssetsJson = async () => {
+    if (!newModalRun) return
+    setExporting(true)
+    setNewError(null)
+    try {
+      const gte = newModalRun.started_at
+      const lte = newModalRun.finished_at || new Date().toISOString()
+      const pageSize = 1000
+      let from = 0
+      let all = []
+      while (true) {
+        const { data, error } = await supabase
+          .from('assets')
+          .select(NEW_ASSETS_FIELDS)
+          .gte('created_at', gte)
+          .lte('created_at', lte)
+          .order('id', { ascending: true })
+          .range(from, from + pageSize - 1)
+        if (error) throw error
+        all = all.concat(data || [])
+        if (!data || data.length < pageSize) break
+        from += pageSize
+      }
+
+      const payload = {
+        run_id:      newModalRun.id,
+        started_at:  newModalRun.started_at,
+        finished_at: newModalRun.finished_at,
+        exported_at: new Date().toISOString(),
+        total:       all.length,
+        assets:      all,
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `tpis_new_assets_run${newModalRun.id}_${(newModalRun.started_at || '').slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setNewError('Export ไม่สำเร็จ: ' + e.message)
+    } finally {
+      setExporting(false)
+    }
   }
 
   if (loading) return (
@@ -420,7 +537,12 @@ export default function AdminPage() {
                     : `พบ ${fmtNum(newModalRun.total_records_new ?? newAssets.length)} รายการ`}
                 </div>
               </div>
-              <button className="abtn secondary" onClick={closeNewItems}>ปิด</button>
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <button className="abtn secondary" onClick={exportNewAssetsJson} disabled={exporting || newAssetsLoading}>
+                  {exporting ? 'กำลัง Export...' : '⬇ Export JSON'}
+                </button>
+                <button className="abtn secondary" onClick={closeNewItems}>ปิด</button>
+              </div>
             </div>
             <div className="new-items-modal-body">
               {newAssetsLoading && (
@@ -439,36 +561,93 @@ export default function AdminPage() {
                   <table className="runs-table">
                     <thead>
                       <tr>
+                        <th>#</th>
                         <th>เลขที่</th>
                         <th>จังหวัด</th>
                         <th>อำเภอ / ตำบล</th>
+                        <th>เลขโฉนด</th>
+                        <th>Lat</th>
+                        <th>Long</th>
                         <th>ประเภท</th>
                         <th>ราคาประเมิน</th>
                         <th>เพิ่มเมื่อ</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {newAssets.map(a => (
-                        <tr key={a.id}>
-                          <td style={{ fontFamily: 'var(--mono)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
-                            {a.str_bid_num || '—'}
-                          </td>
-                          <td>{a.led_province_name || a.city || '—'}</td>
-                          <td style={{ fontSize: '0.8rem', color: 'var(--text-2)' }}>
-                            {[a.ampur, a.tumbol].filter(Boolean).join(' / ') || '—'}
-                          </td>
-                          <td style={{ fontSize: '0.8rem' }}>{a.asset_type_desc || '—'}</td>
-                          <td style={{ fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>{fmtPrice(a.assetprice3)}</td>
-                          <td style={{ fontFamily: 'var(--mono)', fontSize: '0.72rem', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
-                            {fmtDateTime(a.created_at)}
-                          </td>
-                        </tr>
-                      ))}
+                      {newAssets.map((a, i) => {
+                        const deedList = Array.isArray(a.deedno) ? a.deedno.filter(Boolean) : []
+                        const parcels  = parcelsByAsset[a.id] || []
+                        const findParcel = (dn) => parcels.find(p => p.parcelno === dn)
+                        const isMulti  = deedList.length > 1
+                        const isExpanded = expandedDeedRows.has(a.id)
+                        const singleParcel = deedList.length === 1 ? findParcel(deedList[0]) : null
+
+                        return (
+                          <Fragment key={a.id}>
+                            <tr>
+                              <td style={{ fontFamily: 'var(--mono)', fontSize: '0.72rem', color: 'var(--text-3)' }}>
+                                {i + 1}
+                              </td>
+                              <td style={{ fontFamily: 'var(--mono)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                                {a.str_bid_num || '—'}
+                              </td>
+                              <td>{a.led_province_name || '—'}</td>
+                              <td style={{ fontSize: '0.8rem', color: 'var(--text-2)' }}>
+                                {[a.deedampur, a.deedtumbol].filter(Boolean).join(' / ') || '—'}
+                              </td>
+                              <td
+                                className={isMulti ? 'deedno-cell clickable' : 'deedno-cell'}
+                                onClick={isMulti ? () => toggleDeedExpand(a.id) : undefined}
+                                title={isMulti ? (isExpanded ? 'กดเพื่อยุบ' : 'กดเพื่อดูพิกัดรายแปลง') : undefined}
+                              >
+                                {deedList.length === 0 ? (
+                                  '—'
+                                ) : isMulti ? (
+                                  <>
+                                    <span className="deedno-toggle-icon">{isExpanded ? '▾' : '▸'}</span>
+                                    {deedList.length} แปลง ({deedList.slice(0, 2).join(', ')}
+                                    {deedList.length > 2 ? ', …' : ''})
+                                  </>
+                                ) : (
+                                  deedList[0]
+                                )}
+                              </td>
+                              <td style={{ fontFamily: 'var(--mono)', fontSize: '0.76rem', whiteSpace: 'nowrap' }}>
+                                {isMulti ? '—' : fmtLatLng(singleParcel?.latitude)}
+                              </td>
+                              <td style={{ fontFamily: 'var(--mono)', fontSize: '0.76rem', whiteSpace: 'nowrap' }}>
+                                {isMulti ? '—' : fmtLatLng(singleParcel?.longitude)}
+                              </td>
+                              <td style={{ fontSize: '0.8rem' }}>{a.asset_type_desc || '—'}</td>
+                              <td style={{ fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>{fmtBahtExact(a.assetprice3)}</td>
+                              <td style={{ fontFamily: 'var(--mono)', fontSize: '0.72rem', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
+                                {fmtDateTime(a.created_at)}
+                              </td>
+                            </tr>
+                            {isMulti && isExpanded && deedList.map((dn, di) => {
+                              const p = findParcel(dn)
+                              return (
+                                <tr key={`${a.id}-${dn}-${di}`} className="deedno-subrow">
+                                  <td colSpan={4} className="deedno-subrow-spacer" />
+                                  <td className="deedno-subrow-value">{dn}</td>
+                                  <td style={{ fontFamily: 'var(--mono)', fontSize: '0.76rem', whiteSpace: 'nowrap' }}>
+                                    {fmtLatLng(p?.latitude)}
+                                  </td>
+                                  <td style={{ fontFamily: 'var(--mono)', fontSize: '0.76rem', whiteSpace: 'nowrap' }}>
+                                    {fmtLatLng(p?.longitude)}
+                                  </td>
+                                  <td colSpan={3} />
+                                </tr>
+                              )
+                            })}
+                          </Fragment>
+                        )
+                      })}
                     </tbody>
                   </table>
                   {newAssets.length === 500 && (
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-3)', marginTop: 10 }}>
-                      แสดง 500 รายการแรก — อาจมีมากกว่านี้จริง
+                      ตารางนี้แสดงแค่ 500 รายการแรก — Export JSON จะได้ครบทุกรายการจริง
                     </div>
                   )}
                 </>
