@@ -7,6 +7,78 @@
 
 ---
 
+## 2026.08.11-2
+
+### Changed — SearchPage: Layout ใหม่ + View Modes + Responsive
+
+#### SearchPage.jsx
+- `[SearchPage]` เปลี่ยน layout จาก 3-panel (sidebar + results + map) เป็น full-width
+  centered `max-width: 1400px` ไม่เต็มจอ มี margin ซ้ายขวาเหมือน Dashboard/Admin
+- `[SearchPage]` เพิ่ม **View Toggle 3 โหมด** (Grid / List / Map+Cards)
+  - **Grid** — cards 4 คอลัมน์ ไม่มี map
+  - **List** — compact rows ไม่มี map
+  - **Map+Cards** — map sticky 45vh บนสุด + cards 4 คอลัมน์ด้านล่าง
+- `[SearchPage]` เพิ่ม **"ประมูลวันนี้"** ใน status filter — query `asset_bid_rounds`
+  หา `asset_id` ที่ `bid_date = today` ก่อน แล้ว `.in('id', ids)`
+- `[SearchPage]` ลบ sort **"ล่าสุด (ดึงข้อมูล)"** (`scraped_at.desc`) ออก
+  เปลี่ยน default sort เป็น `ischeck_date.desc` (วันที่ประกาศใหม่สุด)
+- `[SearchPage]` เพิ่ม sort: พื้นที่มากสุด/น้อยสุด, ผ่านนัดมากสุด/นัดน้อยสุด
+- `[SearchPage]` **Hover card → highlight pin** ใน Map+Cards view
+  `onMouseEnter` → set `hoverId` → LeafletMap ขยาย marker ที่ hover
+- `[SearchPage]` Map+Cards — map ใช้ `.map-sticky-container` (`position: sticky;
+  top: var(--nav-h)`) map ล็อกอยู่ใต้ navbar ขณะ cards เลื่อนผ่าน
+- `[SearchPage]` ยกเลิก sticky filter bar — filter bar scroll หายขึ้นไปได้ตามปกติ
+
+#### SearchFilters.jsx
+- `[SearchFilters]` เปลี่ยน layout จาก sidebar ซ้าย → **horizontal dropdown row**
+  แสดงเป็น pill-style dropdown: จังหวัด | อำเภอ | ตำบล | ประเภท | ราคา | สถานะ
+- `[SearchFilters]` dropdown จังหวัด/อำเภอ/ตำบล cascade ใช้ `useGeoFilter` hook
+- `[SearchFilters]` ปุ่ม "ล้างทั้งหมด" แสดงเฉพาะเมื่อมี active filter
+- `[SearchFilters]` เพิ่ม preset ราคา < 1M / 3M / 5M แบบ chip toggle
+- `[SearchFilters]` status option เพิ่ม **"ประมูลวันนี้"**
+
+#### PropertyCard.jsx
+- `[PropertyCard]` เพิ่ม prop `variant`: `'horizontal'` / `'grid'` / `'list'`
+- `[PropertyCard]` **horizontal** — รูปซ้าย ข้อมูลขวา ข้อมูลครบทุกช่อง
+  แก้ปัญหาข้อมูลตกบรรทัด: ลบ `min-height` → auto height ตาม content
+- `[PropertyCard]` **grid** — รูปบน aspect-ratio 4/3, badges overlay บนรูป,
+  ข้อมูลล่าง ใช้ใน Grid view และ Map+Cards view
+- `[PropertyCard]` **list** — compact row: รูปเล็ก | badges | ที่ตั้ง | ราคา | score
+- `[PropertyCard]` เพิ่ม prop `onMouseEnter / onMouseLeave` สำหรับ hover → map sync
+
+#### Navbar.jsx
+- `[Navbar]` Logo (`navbar-logo`) เปลี่ยนจาก `<div>` → `<Link to="/">` กดกลับหน้าหลักได้
+  เพิ่ม hover opacity เพื่อ feedback ว่ากดได้
+- `[Navbar]` เพิ่ม `.navbar-inner` wrapper `max-width: 1400px; margin: 0 auto`
+  ทำให้ logo/search/links อยู่ในกรอบเดียวกับ content ด้านล่าง
+  background navbar ยังคงเต็มจอเหมือนเดิม
+
+#### index.css — Sections 21-23
+- `[css]` **Section 21** — Search Page New Layout
+  - `.search-page-wrap` max-width 1400px centered
+  - `.filter-bar` horizontal pill dropdown bar + `.filter-bar-select` pill style
+  - `.results-bar-new` flex row: count ซ้าย / sort+pagesize+toggle ขวา
+  - `.view-toggle` + `.view-btn` 3 ปุ่ม Grid / List / Map+Cards
+  - `.cards-grid` grid 4 col + `.property-card-grid` vertical card
+  - `.cards-list` + `.property-card-list` compact row + `width: 100%`
+  - `.map-cards-layout` + `.map-cards-map` map บน cards ล่าง
+  - `.property-card { min-height: unset }` — auto height
+- `[css]` **Section 22** — Responsive breakpoints (Grid columns)
+  - `>1280px` → 4 col
+  - `1024–1280px` → 3 col
+  - `860–1024px` → 3 col + hide map panel
+  - `640–860px` → 2 col
+  - `<640px` → 2 col compact
+  - `<480px` → card แนวตั้ง รูปบน ข้อมูลล่าง
+- `[css]` **Section 23** — Map Sticky + List card mobile fix
+  - `.map-sticky-container` `position: sticky; top: var(--nav-h); height: 45vh`
+  - `.property-card-list` `width: 100%` กว้างเต็มทุกขนาดจอ
+  - responsive list mobile: `grid-template-columns: 72px 1fr auto` บนจอ ≤640px
+- `[css]` `.navbar` เปลี่ยนเป็น block + `.navbar-inner` max-width 1400px centered
+- `[css]` `.navbar-logo` เพิ่ม `text-decoration: none` + hover opacity
+
+---
+
 ## 2026.08.11-1
 
 ### Added — AdminPage: modal "รายการใหม่" ต่อ crawler run

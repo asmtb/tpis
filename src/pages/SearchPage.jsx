@@ -325,8 +325,8 @@ export default function SearchPage() {
         {/* ── MAP+CARDS view ── */}
         {viewMode === 'map' && (
           <div className="map-cards-layout">
-            {/* Map บนเต็มความกว้าง */}
-            <div className="map-cards-map" style={{ marginTop:16 }}>
+            {/* Map sticky บนเต็มความกว้าง ~45vh */}
+            <div className="map-sticky-container" style={{ marginTop:16 }}>
               <LeafletMap
                 properties={mapPts}
                 selectedId={hoverId || selId}
