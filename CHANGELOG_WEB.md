@@ -7,6 +7,89 @@
 
 ---
 
+## [WIP] 2026.08.12-1
+
+### Added — ระบบ Login (Supabase Auth, email + password)
+
+- `[AuthContext.jsx]` (ไฟล์ใหม่, `src/lib/`) — เก็บ auth session + role ของผู้ใช้ผ่าน
+  React Context เดียวทั้งแอป
+  - โหลด session ปัจจุบันตอนเปิดแอป (`supabase.auth.getSession()`) และ subscribe
+    `onAuthStateChange` ให้ state sync กับ login/logout แบบ realtime
+  - หลังได้ user แล้ว query role จากตาราง `public.users` (join ผ่าน `id` — ตารางนี้
+    สร้างอัตโนมัติโดย trigger `handle_new_user()` ที่มีอยู่แล้วใน schema baseline)
+  - export `useAuth()` hook คืน `{ user, role, loading, isAdmin, signIn, signOut }`
+  - หมายเหตุในโค้ด: role ที่ context เก็บไว้ใช้คุมแค่ UI (ซ่อน/แสดงปุ่ม, redirect)
+    ไม่ใช่ชั้นความปลอดภัยจริง — ความปลอดภัยจริงอยู่ที่ RLS policy ฝั่ง Supabase
+    (`current_user_role() = 'admin'`) ที่มีอยู่แล้วในตาราง `parcels` เป็นต้น
+- `[RequireAdmin.jsx]` (ไฟล์ใหม่, `src/components/`) — route guard สำหรับหน้าที่ต้อง
+  สิทธิ์ admin
+  - ยังไม่ login → เด้งไป `/signin` พร้อมจำหน้าที่ตั้งใจจะมาไว้ใน
+    `location.state.from` เพื่อเด้งกลับอัตโนมัติหลัง login สำเร็จ
+  - login แล้วแต่ role ไม่ใช่ `admin` → โชว่ alert แจ้งเตือนแทนหน้าเปล่าๆ พร้อม role
+    ปัจจุบันที่มี
+  - loading state ระหว่างเช็ค session ครั้งแรก — ใช้ `.state-box`/`.dots` component
+    เดียวกับที่หน้า Admin เดิมใช้อยู่แล้ว
+- `[SignInPage.jsx]` (ไฟล์ใหม่, `src/pages/`) — ฟอร์ม email + password
+  - login แล้ว (เช่นเปิดแท็บใหม่ หรือ refresh หน้า `/signin` ตรงๆ) → เด้งไปหน้าที่ตั้งใจ
+    จะมา (`from`) อัตโนมัติแทนที่จะค้างอยู่หน้า login
+  - error message แปลเป็นไทยเฉพาะเคส "Invalid login credentials" (พบบ่อยสุด) ส่วน
+    error อื่นแสดง message ดิบจาก Supabase
+  - ไม่มีหน้า sign-up สาธารณะโดยตั้งใจ — ต้องสร้าง user ผ่าน Supabase Dashboard เอง
+    (Authentication → Users → Add user) แล้วรัน SQL ตั้ง `role='admin'` ในตาราง
+    `public.users` เพราะมี admin แค่คนเดียว ไม่จำเป็นต้องเปิด sign-up flow
+
+### Changed — App.jsx, Navbar.jsx
+
+- `[App.jsx]` ห่อทั้งแอปด้วย `<AuthProvider>`, เพิ่ม route `/signin`, ครอบ route
+  `/admin` เดิมด้วย `<RequireAdmin>` — หน้า public อื่น (`/`, `/map`, `/dashboard`,
+  `/property/:id`) ไม่ถูกกระทบ เข้าได้ปกติโดยไม่ต้อง login
+- `[Navbar.jsx]` เพิ่ม auth widget ท้าย nav bar (ก่อนปุ่ม dark mode toggle):
+  - ยังไม่ login → ปุ่ม "เข้าสู่ระบบ" ลิงก์ไป `/signin`
+  - login แล้ว → โชว์ email ผู้ใช้ (มี badge 👤 ถ้า role เป็น admin) + ปุ่ม
+    "ออกจากระบบ" — กดแล้วเรียก `signOut()` แล้ว navigate กลับหน้าแรก
+
+### Changed — index.css
+
+- `[index.css]` เพิ่ม `.navbar-auth` / `.navbar-auth-email` / `.navbar-auth-btn` —
+  style ของ auth widget ใน navbar (สีขาวโปร่งแสงให้เข้ากับพื้นหลัง navbar สีน้ำเงินเดิม)
+- `[index.css]` เพิ่ม `.signin-wrap` / `.signin-card` / `.signin-logo` /
+  `.signin-title` / `.signin-sub` / `.signin-label` / `.signin-input` /
+  `.signin-submit` — style หน้า sign-in ทั้งหน้า (card กลางจอ, logo TPIS ด้านบน,
+  ใช้ `.abtn.primary` เดิมสำหรับปุ่ม submit ไม่สร้างปุ่มใหม่ซ้ำ)
+
+### Discovered — ต้องทำ manual setup ก่อนใช้งานได้จริง
+
+- Supabase Auth ไม่มี UI สำหรับสร้าง admin user คนแรกจากฝั่ง frontend (ตั้งใจไม่เปิด
+  sign-up สาธารณะ) ต้องสร้างผ่าน Supabase Dashboard เอง 2 ขั้นตอน:
+  1. Authentication → Users → Add user (เลือก "Auto Confirm User" ไม่งั้นต้องไป
+     ยืนยันในอีเมลก่อนถึงจะ login ได้)
+  2. SQL Editor: `update public.users set role = 'admin' where email = '<email>';`
+
+### Planned — Google OAuth (ถามไว้ ยังไม่ทำ)
+
+- ถามเรื่อง Google login ไว้ — สรุปว่าทำได้จริงผ่าน Supabase Auth Google provider
+  แต่ต้องตั้งค่านอกโค้ด (OAuth Client ใน Google Cloud Console + ใส่ Client
+  ID/Secret ใน Supabase Dashboard → Authentication → Providers → Google + เพิ่ม
+  redirect URI ที่ Supabase ให้กลับไปใส่ใน Google Console) — ยังไม่ implement
+  เพราะตัดสินใจใช้ email+password พอสำหรับ admin คนเดียว ถ้าต้องการทีหลังแค่เพิ่ม
+  ปุ่มเรียก `supabase.auth.signInWithOAuth({ provider: 'google' })` ในหน้า
+  `SignInPage.jsx` ไม่ต้องแก้โครงสร้าง auth ใหม่
+
+### Planned — หน้า "จัดการโฉนด" (ต่อจากนี้)
+
+- แผนที่คุยกันไว้ก่อนเริ่มงานเรื่อง auth: เพิ่มหน้า `/admin` ให้มี tab ย่อย
+  Dashboard / Crawler (หน้า Admin เดิม) / จัดการโฉนด
+- หน้าจัดการโฉนด: ตาราง `parcels` join `asset_parcels`→`assets`, filter
+  จังหวัด/verify_status/มี-ไม่มี tag/ค้นหาเลขโฉนด-เลขที่ทรัพย์/ช่วงวันที่ (จาก
+  `assets.created_at`), แก้ไข lat/long + คอลัมน์ `tag` (ชื่อคอนโด/สถานที่) แบบ
+  inline ต่อแถว, ปุ่ม Export JSON เฉพาะรายการที่ตรง filter, pagination 50/หน้า
+- ต้องมี migration ใหม่ก่อนเริ่มเขียนหน้านี้: เพิ่มคอลัมน์ `parcels.tag`, เพิ่มค่า
+  `'manual'` ใน `verify_status` enum และแก้ `is_retryable()` ให้ข้าม status นี้
+  กัน `landsmaps_collector` รันทับพิกัดที่แอดมินกรอกเอง — รอ auth ใช้งานได้จริงก่อน
+  ถึงจะเริ่มเขียนหน้านี้ (RLS ต้องมี session role=admin ถึงจะ update ได้จริง)
+
+---
+
 ## 2026.08.11-2
 
 ### Changed — SearchPage: Layout ใหม่ + View Modes + Responsive
