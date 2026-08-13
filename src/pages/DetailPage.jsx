@@ -119,6 +119,18 @@ export default function DetailPage() {
   // ราคาประมูลล่าสุด: ใช้ assetprice3 เป็น appraisal, ไม่มีราคาประมูลจาก bid rounds แล้ว
   const discPct = null  // จะคำนวณได้เมื่อมีข้อมูลราคาจริง
 
+  // ── ราคาเริ่มประมูล — priority: assetprice5 > 4 > 3 > 2 ──
+  let startPrice = null, startPriceLabel = ''
+  if (asset.assetprice5 > 0) {
+    startPrice = asset.assetprice5; startPriceLabel = 'คณะกรรมการ'
+  } else if (asset.assetprice4 > 0) {
+    startPrice = asset.assetprice4; startPriceLabel = 'เจ้าพนักงานประเมินราคาทรัพย์'
+  } else if (asset.assetprice3 > 0) {
+    startPrice = asset.assetprice3; startPriceLabel = 'เจ้าพนักงานบังคับคดี'
+  } else if (asset.assetprice2 > 0) {
+    startPrice = asset.assetprice2; startPriceLabel = 'ผู้เชี่ยวชาญ'
+  }
+
   return (
     <>
       {/* Lightbox overlay */}
@@ -354,23 +366,59 @@ export default function DetailPage() {
                 <span className="panel-title">วิเคราะห์ราคา</span>
               </div>
               <div className="panel-body">
-                <div className="price-analysis">
-                  {/* ราคาประเมิน — เลขเต็ม */}
+                {/* ── กรอบ 1: ราคาเริ่มประมูล ── */}
+                <div className="price-analysis" style={{ marginBottom: 12 }}>
                   <div className="price-row">
-                    <span className="lbl">ราคาประเมิน (เจ้าพนักงาน)</span>
-                    <span className="val accent">{fmtPriceFull(asset.assetprice3)}</span>
+                    <span className="lbl">💰 ราคาเริ่มประมูล</span>
+                    <span className="val accent" style={{ fontSize: '1.1rem' }}>
+                      {fmtPriceFull(startPrice)}
+                    </span>
                   </div>
-                  {asset.assetprice1 && asset.assetprice1 !== asset.assetprice3 && (
-                    <>
-                      <hr className="price-divider"/>
-                      <div className="price-row">
-                        <span className="lbl">ราคาประเมินผู้เชี่ยวชาญ</span>
-                        <span className="val" style={{ fontSize: '0.9rem' }}>
-                          {fmtPriceFull(asset.assetprice1)}
-                        </span>
-                      </div>
-                    </>
-                  )}
+                </div>
+
+                {/* ── กรอบ 2: ราคาประเมินทั้ง 4 แหล่ง (เรียง assetprice2→5) ── */}
+                <div className="price-analysis">
+                  <div className="price-row">
+                    <span className="lbl">
+                      ราคาประเมิน<br/>
+                      <span style={{ fontSize: 'inherit', fontWeight: 'inherit' }}>(ผู้เชี่ยวชาญการประเมินราคา)</span>
+                    </span>
+                    <span className="val" style={{ fontSize: '0.88rem' }}>
+                      {asset.assetprice2 > 0 ? fmtPriceFull(asset.assetprice2) : '-'}
+                    </span>
+                  </div>
+
+                  <hr className="price-divider"/>
+                  <div className="price-row">
+                    <span className="lbl">
+                      ราคาประเมิน<br/>
+                      <span style={{ fontSize: 'inherit', fontWeight: 'inherit' }}>(เจ้าพนักงานบังคับคดี)</span>
+                    </span>
+                    <span className="val" style={{ fontSize: '0.88rem' }}>
+                      {asset.assetprice3 > 0 ? fmtPriceFull(asset.assetprice3) : '-'}
+                    </span>
+                  </div>
+
+                  <hr className="price-divider"/>
+                  <div className="price-row">
+                    <span className="lbl">
+                      ราคาประเมิน<br/>
+                      <span style={{ fontSize: 'inherit', fontWeight: 'inherit' }}>(เจ้าพนักงานประเมินราคาทรัพย์)</span>
+                    </span>
+                    <span className="val" style={{ fontSize: '0.88rem' }}>
+                      {asset.assetprice4 > 0 ? fmtPriceFull(asset.assetprice4) : '-'}
+                    </span>
+                  </div>
+
+                  <hr className="price-divider"/>
+                  <div className="price-row">
+                    <span className="lbl">ราคาที่กำหนดโดยคณะกรรมการ</span>
+                    <span className="val" style={{ fontSize: '0.88rem' }}>
+                      {asset.assetprice5 > 0 ? fmtPriceFull(asset.assetprice5) : '-'}
+                    </span>
+                  </div>
+
+                  {/* ราคาที่ดินกรมที่ดิน — คงไว้ท้ายสุด */}
                   {mapPt?.land_price_per_sqw > 0 && (
                     <>
                       <hr className="price-divider"/>
