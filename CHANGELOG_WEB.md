@@ -6,6 +6,87 @@
 `[WIP]` = ยังทำไม่ครบทุกกลุ่มที่วางแผนไว้ ยังไม่ deploy จริง
 
 ---
+ 
+## 2026.08.16-1
+ 
+### Added — Admin: โครงสร้าง tab bar ใหม่ (Dashboard / Crawler / จัดการโฉนด)
+ 
+- `[AdminLayout.jsx]` (ไฟล์ใหม่) — header + tab bar ของ `/admin` ใช้ nested route
+  จริง (`/admin/dashboard`, `/admin/crawler`, `/admin/parcels`) แทน client-side
+  tab state ตามที่เลือกไว้ — กด back/forward ของ browser ใช้งานได้ปกติ, refresh
+  หน้าค้างที่ tab เดิมได้, แชร์ลิงก์ตรง tab ได้
+- `[App.jsx]` เปลี่ยน route `/admin` จาก element เดี่ยวเป็น nested route ผ่าน
+  `<AdminLayout>` ครอบด้วย `<RequireAdmin>` เหมือนเดิม (guard เดียวคุมทั้ง 3 tab
+  ไม่ต้องเช็คสิทธิ์ซ้ำในแต่ละ tab)
+  - `index` route เด้งไป `dashboard` โดย default
+  - `/dashboard` เส้นทางเดิม → `<Navigate to="/admin/dashboard" replace />`
+    (ตามที่ตกลงกันไว้ — ย้ายเนื้อหาเข้า tab แล้ว เลิกใช้หน้าเดี่ยวเดิม)
+
+### Changed — แยกไฟล์หน้า Admin เดิมเป็น 3 ไฟล์ตาม tab
+ 
+- `[AdminDashboardPage.jsx]` (ไฟล์ใหม่) — ย้ายเนื้อหาทั้งหมดจาก `DashboardPage.jsx`
+  เดิมมาแบบ 1:1 (แค่เปลี่ยนชื่อ component) ไม่มี logic เปลี่ยน
+- `[AdminCrawlerPage.jsx]` (ไฟล์ใหม่) — ย้ายเนื้อหาทั้งหมดจาก `AdminPage.jsx` เดิม
+  (สถิติระบบ, LED Crawler, LandsMaps Session, Crawler Runs, modal "รายการใหม่"
+  พร้อม Export JSON/พิกัด/sub-row ขยายดูรายแปลง) มาแบบ 1:1 — ตัดแค่ header
+  "Admin Panel" ซ้ำออก เพราะ `AdminLayout` render ให้ทีเดียวครอบทุก tab แล้ว
+  ไม่มี logic ไหนเปลี่ยน
+- `[pages]` ลบ `AdminPage.jsx` และ `DashboardPage.jsx` เดิมทิ้ง (เนื้อหาย้ายออก
+  ไปหมดแล้ว ไม่มีไฟล์ไหนอ้างอิงถึงอีก)
+
+### Added — หน้าใหม่ "จัดการโฉนด" (`AdminParcelsPage.jsx`)
+ 
+- ตาราง `parcels` join asset ตัวแทนต่อแถว (เลขที่ทรัพย์/จังหวัด/อำเภอ-ตำบล/
+  ประเภท/ราคาประเมิน) — query 2 ขั้น: หา asset id ที่ตรง filter ก่อน (ถ้ามี filter
+  ฝั่ง assets) → filter `parcels` ผ่าน `asset_parcels!inner(asset_id)` — mirror
+  pattern เดียวกับที่ modal "รายการใหม่" ใน `AdminCrawlerPage.jsx` ใช้ดึงพิกัดอยู่
+  แล้ว (พิสูจน์แล้วว่าใช้งานได้จริงในโปรเจกต์นี้)
+- Filter: จังหวัด (จาก `PROVINCES` ใน `constants.js`), สถานะพิกัด (รวมตัวเลือก
+  "ยังไม่มีพิกัด" ที่เช็ค `latitude is null` โดยเฉพาะ), มี/ไม่มี tag, ค้นหาเลขโฉนด
+  (`ilike` บน `parcelno`), ค้นหาเลขที่ทรัพย์ LED (`ilike` บน `str_bid_num`), ช่วง
+  วันที่ (จาก `assets.created_at` — ตามที่ขอไว้ตอนวางแผน "จะได้ export json เฉพาะ
+  รายการในช่วงวันที่ filter ได้ด้วย")
+- แก้ไขแบบ inline ต่อแถว — กด "แก้ไข" → lat/long/tag กลายเป็น input ในแถวนั้นเลย
+  ไม่เปิด modal ซ้อน (มีแค่ 3 field ไม่ซับซ้อนพอที่จะต้องแยกหน้า):
+  - `isPlausibleThaiLatLng()` เช็คคร่าวๆ ว่า lat/long อยู่ในกรอบพิกัดของไทย
+    (lat 5–21, long 97–106) ก่อน save กันพิมพ์ผิด แต่ไม่ hard-block เผื่อ edge case
+  - บันทึกแล้ว set `verify_status='manual'` อัตโนมัติเมื่อกรอกทั้ง lat และ long
+    (ตามที่ตกลงกันไว้ก่อนเริ่มทำหน้านี้ — กัน `landsmaps_collector` รอบหน้ามารันทับ
+    ดู migration `0014` + `is_retryable()` ฝั่ง backend ที่ข้าม status นี้แล้ว)
+  - ลบพิกัดออกได้ (เว้นว่างทั้งคู่) โดยไม่บังคับ `verify_status='manual'`
+- ปุ่ม "⬇ Export JSON (ตาม filter)" — export ทุกแถวที่ตรง filter ปัจจุบันจริง
+  (ไม่ใช่แค่หน้าที่เห็น) แบ่งหน้าด้วย `.range()` เหมือน export เดิมใน
+  `AdminCrawlerPage.jsx`, ไฟล์ที่ได้มี `filters` ที่ใช้ ณ ตอน export แนบไว้ด้วย
+  เพื่อ traceability
+- Pagination 50 แถว/หน้า พร้อมปุ่มก่อนหน้า/ถัดไป และเลขหน้า/จำนวนหน้ารวม
+- asset ที่ query มา limit ไว้ที่ 3,000 รายการต่อครั้ง (ป้องกัน `.in()` ยาวเกินตอน
+  filter กว้างเกินไป) — ขึ้น alert เตือนให้แคบ filter ลงถ้าชนเพดานนี้
+
+### Changed — Navbar.jsx
+ 
+- `[Navbar.jsx]` เอาลิงก์ "Dashboard" ออกจาก nav bar หลัก (ย้ายเข้าไปเป็น tab ใน
+  `/admin` แล้ว)
+- `[Navbar.jsx]` ลิงก์ "Admin" โชว์เฉพาะ user ที่ login แล้วและมี `role='admin'`
+  เท่านั้น (`isAdmin === true`) — guest หรือ user ทั่วไปที่ยังไม่ login (หรือ
+  login แล้วแต่ role ไม่ใช่ admin) จะไม่เห็นลิงก์นี้เลย ตามที่ขอไว้ก่อนเริ่มทำ
+
+### Changed — index.css
+ 
+- `[index.css]` `.admin-wrap` ปรับ padding จาก `24px 20px 40px` เหลือ `0 0 40px`
+  (side/top padding ย้ายไปอยู่ที่ `.admin-shell` แทน กันเกิด padding ซ้อนสองชั้น
+  ตอน `.admin-wrap` ถูก render ซ้อนอยู่ใน `.admin-shell` ของ `AdminLayout`)
+- `[index.css]` เพิ่ม `.admin-wrap-wide` (max-width 1880px) — ใช้กับหน้าที่ตาราง
+  กว้างกว่าปกติ (`AdminParcelsPage`) แทน `.admin-wrap` เดิม (920px) ที่แคบเกินสำหรับ
+  ตารางหลายคอลัมน์
+- `[index.css]` เพิ่ม `.admin-shell` / `.admin-shell-hd` / `.admin-tabs` /
+  `.admin-tab` (+ `.active`) — style ของ header และ tab bar ใหม่ทั้งชุด
+- `[index.css]` เพิ่ม `.parcels-filter-grid` / `.pf-field` / `.pf-inline-input` /
+  `.parcel-row-editing` — style ของ filter bar และ inline-edit ในหน้าจัดการโฉนด
+- `[index.css]` เพิ่ม `.parcel-status` + variant สีตาม `verify_status`
+  (`matched`/`partial_match` เขียว, `manual` ฟ้า accent, `not_verified`/`mismatch`
+  เหลือง, `not_found`/`error` แดง) — badge สถานะพิกัดในตาราง
+
+---
 
 ## 2026.08.15-1
 

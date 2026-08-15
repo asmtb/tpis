@@ -75,13 +75,13 @@ export default function Navbar() {
         />
       </form>
 
-      {/* Nav links */}
+      {/* Nav links — Dashboard ย้ายเข้าไปเป็น tab ใน Admin แล้ว, Admin โชว์เฉพาะ
+          user ที่ login แล้วและมี role=admin เท่านั้น (guest/user ทั่วไปไม่เห็น) */}
       <div className="navbar-nav">
         {[
-          { to: '/',          label: 'ค้นหา',     end: true },
-          { to: '/map',       label: 'GIS Map' },
-          { to: '/dashboard', label: 'Dashboard' },
-          { to: '/admin',     label: 'Admin' },
+          { to: '/',    label: 'ค้นหา',   end: true },
+          { to: '/map', label: 'GIS Map' },
+          ...(isAdmin ? [{ to: '/admin', label: 'Admin' }] : []),
         ].map(({ to, label, end }) => (
           <NavLink key={to} to={to} end={end}
             className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
