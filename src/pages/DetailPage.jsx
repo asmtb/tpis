@@ -25,19 +25,34 @@ const ICON = (path) => (
 
 /* ── Lightbox ── */
 function Lightbox({ src, onClose }) {
+  const [rotation, setRotation] = useState(0)
+
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const rotate = (e) => {
+    e.stopPropagation()
+    setRotation(r => r + 90)
+  }
+
   return (
     <div className="lightbox-overlay" onClick={onClose}>
+      <button className="lightbox-rotate" onClick={rotate} title="หมุนรูป 90°">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+      </button>
       <button className="lightbox-close" onClick={onClose}>✕</button>
       <img
         className="lightbox-img"
         src={src}
         alt="ขยายรูปภาพ"
+        style={{ transform: `rotate(${rotation}deg)` }}
         onClick={e => e.stopPropagation()}
       />
     </div>
@@ -377,41 +392,33 @@ export default function DetailPage() {
                 </div>
 
                 {/* ── กรอบ 2: ราคาประเมินทั้ง 4 แหล่ง (เรียง assetprice2→5) ── */}
+                {/* label เต็มความกว้างบรรทัดบน, ราคาบรรทัดล่างชิดขวา */}
                 <div className="price-analysis">
-                  <div className="price-row">
-                    <span className="lbl">
-                      ราคาประเมิน<br/>
-                      <span style={{ fontSize: 'inherit', fontWeight: 'inherit' }}>(ผู้เชี่ยวชาญการประเมินราคา)</span>
-                    </span>
+                  <div className="price-row-v2">
+                    <span className="lbl">ราคาประเมิน (ผู้เชี่ยวชาญการประเมินราคา)</span>
                     <span className="val" style={{ fontSize: '0.88rem' }}>
                       {asset.assetprice2 > 0 ? fmtPriceFull(asset.assetprice2) : '-'}
                     </span>
                   </div>
 
                   <hr className="price-divider"/>
-                  <div className="price-row">
-                    <span className="lbl">
-                      ราคาประเมิน<br/>
-                      <span style={{ fontSize: 'inherit', fontWeight: 'inherit' }}>(เจ้าพนักงานบังคับคดี)</span>
-                    </span>
+                  <div className="price-row-v2">
+                    <span className="lbl">ราคาประเมิน (เจ้าพนักงานบังคับคดี)</span>
                     <span className="val" style={{ fontSize: '0.88rem' }}>
                       {asset.assetprice3 > 0 ? fmtPriceFull(asset.assetprice3) : '-'}
                     </span>
                   </div>
 
                   <hr className="price-divider"/>
-                  <div className="price-row">
-                    <span className="lbl">
-                      ราคาประเมิน<br/>
-                      <span style={{ fontSize: 'inherit', fontWeight: 'inherit' }}>(เจ้าพนักงานประเมินราคาทรัพย์)</span>
-                    </span>
+                  <div className="price-row-v2">
+                    <span className="lbl">ราคาประเมิน (เจ้าพนักงานประเมินราคาทรัพย์)</span>
                     <span className="val" style={{ fontSize: '0.88rem' }}>
                       {asset.assetprice4 > 0 ? fmtPriceFull(asset.assetprice4) : '-'}
                     </span>
                   </div>
 
                   <hr className="price-divider"/>
-                  <div className="price-row">
+                  <div className="price-row-v2">
                     <span className="lbl">ราคาที่กำหนดโดยคณะกรรมการ</span>
                     <span className="val" style={{ fontSize: '0.88rem' }}>
                       {asset.assetprice5 > 0 ? fmtPriceFull(asset.assetprice5) : '-'}
@@ -422,7 +429,7 @@ export default function DetailPage() {
                   {mapPt?.land_price_per_sqw > 0 && (
                     <>
                       <hr className="price-divider"/>
-                      <div className="price-row">
+                      <div className="price-row-v2">
                         <span className="lbl">ราคาที่ดินกรมที่ดิน (ต่อ ตร.วา)</span>
                         <span className="val" style={{ fontSize: '0.88rem' }}>
                           {fmtPriceFull(mapPt.land_price_per_sqw)}

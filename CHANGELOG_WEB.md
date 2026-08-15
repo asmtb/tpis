@@ -6,6 +6,57 @@
 `[WIP]` = ยังทำไม่ครบทุกกลุ่มที่วางแผนไว้ ยังไม่ deploy จริง
 
 ---
+
+## 2026.08.15-1
+
+### Changed — DetailPage: Layout ราคากรอบ 2 เป็นแนวตั้ง + ลบ label กรอบ 1
+
+**บริบท:** กรอบ 2 (ราคาประเมิน 4 แหล่ง) ใช้ layout แนวนอนเดิม (label ซ้าย-ราคาขวา
+บรรทัดเดียว) ทำให้ label ยาวอย่าง "(เจ้าพนักงานประเมินราคาทรัพย์)" บีบพื้นที่ราคาจนตัว
+เลขหลักเยอะ (เช่น `1,836,040 ฿`) ขึ้นบรรทัดใหม่ไม่สม่ำเสมอ
+
+#### DetailPage.jsx
+
+- `[DetailPage]` กรอบ 1 (ราคาเริ่มประมูล) — ลบ label วงเล็บบอกแหล่งที่มา
+  (`{startPriceLabel}`) ออก เหลือแค่ **"💰 ราคาเริ่มประมูล"** เฉยๆ ตาม
+  layout row เดิม (ไม่เปลี่ยนตามกรอบ 2)
+- `[DetailPage]` กรอบ 2 (ราคาประเมิน 4 แหล่ง) — เปลี่ยนทุกแถวจาก class `.price-row`
+  เป็น **`.price-row-v2`** (column layout)
+  - Label เต็มความกว้าง บรรทัดบน อยู่ในบรรทัดเดียว (รวมวงเล็บแหล่งที่มา ไม่ต้องแยก
+    `<br/>` อีกต่อไป เพราะมีที่พอแล้ว)
+  - ราคาอยู่บรรทัดล่าง ชิดขวา (`align-self: flex-end`) ไม่มีปัญหาตัดบรรทัดอีก
+  - ใช้กับทั้ง 4 ราคา: assetprice2/3/4/5 และราคาที่ดินกรมที่ดิน (LandsMaps)
+
+#### index.css
+
+- `[css]` เพิ่ม `.price-row-v2` — `flex-direction: column; gap: 3px`
+  `.price-row-v2 .lbl` label ปกติ, `.price-row-v2 .val` `align-self: flex-end`
+  font-family mono ตัวหนา
+- `[css]` `.price-row` (กรอบ 1) ไม่แตะ — ยังเป็น row layout เดิม
+
+---
+
+### Added — Lightbox: ปุ่มหมุนรูป 90°
+
+**บริบท:** รูปภาพทรัพย์บางรูปที่ crawl มาจาก LED หันด้านกลับ (แนวนอน/แนวตั้งผิด)
+ผู้ใช้ต้องการหมุนดูให้ถูกทิศโดยไม่ต้องออกจาก lightbox
+
+#### DetailPage.jsx
+
+- `[Lightbox]` เพิ่ม state `rotation` (0/90/180/270) เก็บใน component เอง
+  reset กลับ 0 ทุกครั้งที่เปิดรูปใหม่ (unmount/remount ของ Lightbox)
+- `[Lightbox]` เพิ่มปุ่ม 🔄 มุมขวาบนของ overlay (ข้างปุ่มปิด ✕)
+  กดแต่ละครั้งหมุนเพิ่ม 90° วนลูป (`(r + 90) % 360`)
+- `[Lightbox]` รูปภาพใช้ `style={{ transform: rotate(${rotation}deg) }}`
+  พร้อม CSS `transition: transform 0.25s ease` ให้หมุนนุ่มนวล ไม่กระตุก
+
+#### index.css
+
+- `[css]` เพิ่ม `.lightbox-rotate` — ปุ่มกลม 36px วางถัดจาก `.lightbox-close`
+  (offset `right: 68px`) สไตล์เดียวกับปุ่มปิด (glass button บนพื้นดำ)
+- `[css]` เพิ่ม `.lightbox-img { transition: transform 0.25s ease }`
+
+---
  
 ## 2026.08.13-3
  

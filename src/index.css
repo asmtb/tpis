@@ -629,6 +629,11 @@ input, select, textarea { font-family: inherit; }
 .price-row .val.accent { color: var(--accent); }
 .price-row .val.bid   { color: var(--orange); }
 .price-row .val.green { color: var(--green-dark); }
+
+/* price-row-v2 — label เต็มบรรทัดบน, ราคาบรรทัดล่างชิดขวา */
+.price-row-v2         { display: flex; flex-direction: column; gap: 3px; }
+.price-row-v2 .lbl    { font-size: 0.8rem; color: var(--text-2); }
+.price-row-v2 .val    { align-self: flex-end; font-weight: 700; font-family: var(--mono); }
 .price-divider        { border: none; border-top: 1px solid #C2D4E4; }
 .price-discount-bar   { height: 6px; background: #C2D4E4; border-radius: 3px; overflow: hidden; }
 .price-discount-fill  { height: 100%; background: var(--green); border-radius: 3px; transition: width 0.5s ease; }
@@ -641,6 +646,9 @@ input, select, textarea { font-family: inherit; }
 @keyframes lb-scale { from { transform: scale(0.94) } to { transform: scale(1) } }
 .lightbox-close   { position: absolute; top: 20px; right: 24px; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .lightbox-close:hover { background: rgba(255,255,255,0.28); }
+.lightbox-rotate  { position: absolute; top: 20px; right: 68px; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.15); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+.lightbox-rotate:hover { background: rgba(255,255,255,0.28); }
+.lightbox-img     { transition: transform 0.25s ease; }
 .img-thumb        { cursor: zoom-in; border-radius: var(--r-sm); border: 1.5px solid var(--border); transition: border-color 0.15s, box-shadow 0.15s; }
 .img-thumb:hover  { border-color: var(--accent); box-shadow: var(--sh-sm); }
 
