@@ -7,6 +7,47 @@
 
 ---
  
+## 2026.08.20-1
+ 
+### Changed — AdminParcelsPage: Export JSON เปลี่ยนเป็น format เดียวกับหน้า Crawler
+ 
+- `[AdminParcelsPage.jsx]` เดิมปุ่ม Export JSON export ข้อมูลระดับ `parcels`
+  (id, provid, amph2, parcelno, lat/long, verify_status, tag,
+  land_price_per_sqw) ซึ่งใช้ป้อนกลับเข้า `landsmaps_collector_local.py --file`
+  ไม่ได้ตรงๆ เพราะ field ไม่ตรงรูปแบบที่ script ต้องการ — เปลี่ยนเป็น export
+  **asset-shaped JSON แบบเดียวกับ modal "รายการใหม่"** ใน `AdminCrawlerPage.jsx`
+  ทุกประการ (field set เดียวกัน คือ `NEW_ASSETS_FIELDS`, key `"assets"` เดียวกัน)
+- `[AdminParcelsPage.jsx]` ตรรกะ export ใหม่ 3 ขั้น:
+  1. ดึง `parcels` ทุกแถวที่ตรง filter ปัจจุบันจริง (ไม่ใช่แค่หน้าที่เห็น) — ใช้
+     `buildParcelsQuery()` เดิม แบ่งหน้าด้วย `.range()`
+  2. หา asset id ทั้งหมดที่ผูกกับ parcel เหล่านั้นผ่าน `asset_parcels` (dedupe
+     ด้วย `Set` เผื่อ parcel เดียวผูกหลาย asset หรือหลาย parcel ผูก asset เดียวกัน)
+  3. ดึง asset เต็มรูปแบบด้วย field set เดียวกับ `AdminCrawlerPage.jsx`
+     (`NEW_ASSETS_FIELDS`) แล้วห่อเป็น payload เดียวกัน
+- `[AdminParcelsPage.jsx]` ประโยชน์ที่ได้: filter หน้า "จัดการโฉนด" ด้วย
+  `สถานะพิกัด = mismatch` แล้ว Export JSON เอาไปรันกับ
+  `landsmaps_collector_local.py --file <ไฟล์>` ได้ทันที ใช้แก้ parcel ที่เคยได้
+  `mismatch` ปลอมจากบั๊ก `rai`/`ngan` เป็น `None` (ดู `CHANGELOG_2026.08.20-1.md`
+  ฝั่ง backend) โดยไม่ต้องรอ checkpoint ปกติ หรือรื้อ asset ทั้งหมดใหม่
+
+### Changed — AdminCrawlerPage: ตาราง Crawler Runs แสดงทุกรอบแทนที่จะจำกัด 15 รอบล่าสุด
+ 
+- `[AdminCrawlerPage.jsx]` query `crawler_runs` เอา `.limit(15)` ออก เปลี่ยนเป็น
+  `.limit(1000)` (เพดานปลอดภัย กัน query โหลดข้อมูลไม่จำกัดถ้า run เยอะขึ้นเรื่อยๆ
+  ในอนาคต)
+- `[AdminCrawlerPage.jsx]` หัวข้อตารางเปลี่ยนจาก "Crawler Runs (15 รอบล่าสุด)"
+  แบบข้อความตายตัว เป็น "Crawler Runs (ทั้งหมด N รอบ)" คำนวณจำนวนจริงแบบ dynamic
+  ทุกครั้งที่โหลดหน้า
+  
+### Context
+ 
+งานสองอย่างนี้เป็นส่วนหนึ่งของการแก้บั๊ก mismatch ปลอมที่ไล่ตรวจจากรูป Table
+Editor ของ Supabase (เห็น `rai`/`ngan` เป็น `NULL` จำนวนมากในตาราง `assets`) —
+ฝั่ง frontend เตรียม tooling (export ที่ใช้ป้อน collector ได้ตรงๆ) ไว้รองรับ
+การแก้ไขข้อมูลที่ค้างอยู่หลัง deploy โค้ด backend ที่แก้ไปแล้ว
+
+---
+ 
 ## 2026.08.16-1
  
 ### Added — Admin: โครงสร้าง tab bar ใหม่ (Dashboard / Crawler / จัดการโฉนด)

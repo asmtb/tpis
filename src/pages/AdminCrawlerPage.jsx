@@ -45,7 +45,7 @@ export default function AdminCrawlerPage() {
           supabase.from('crawler_runs')
             .select('id, started_at, finished_at, status, run_mode, total_records_fetched, total_records_new, total_provinces_success, total_provinces_failed, duration_sec, code_version, error_message, triggered_by')
             .order('started_at', { ascending: false })
-            .limit(15),
+            .limit(1000),
           supabase.from('landsmaps_sessions')
             .select('uploaded_at, note, is_active')
             .eq('is_active', true)
@@ -446,7 +446,9 @@ export default function AdminCrawlerPage() {
       {/* Crawler runs table */}
       <div className="admin-section">
         <div className="admin-section-hd">
-          <span className="admin-section-title">Crawler Runs (15 รอบล่าสุด)</span>
+          <span className="admin-section-title">
+            Crawler Runs {runs.length > 0 ? `(ทั้งหมด ${fmtNum(runs.length)} รอบ)` : ''}
+          </span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           {runs.length === 0 ? (

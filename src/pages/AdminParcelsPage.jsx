@@ -5,6 +5,14 @@ import { PROVINCES } from '../lib/constants.js'
 
 const PAGE_SIZE = 50
 
+/** field ชุดเดียวกับที่ AdminCrawlerPage.jsx export ให้ modal "รายการใหม่" — ตรงกับ
+ *  ที่ landsmaps_supabase.get_new_assets() ใช้ปกติ เอาไฟล์นี้ไปรันกับ
+ *  landsmaps_collector_local.py --file <ไฟล์นี้> ได้เลยไม่ต้องแปลง field เพิ่ม */
+const NEW_ASSETS_FIELDS =
+  'id, str_bid_num, led_province_id, led_province_name, city, ampur, ' +
+  'deedcity, deedampur, deedtumbol, deedno, deedno_raw, deedno_count, ' +
+  'asset_type_id, asset_type_desc, assetprice3, rai, ngan, wa, url_picture, created_at'
+
 const VERIFY_STATUS_OPTIONS = [
   { value: '',              label: 'ทุกสถานะ' },
   { value: 'no_coords',     label: 'ยังไม่มีพิกัด' },
@@ -231,6 +239,11 @@ export default function AdminParcelsPage() {
   }
 
   /** Export parcel ทุกแถวที่ตรง filter ปัจจุบัน (ไม่ใช่แค่หน้าที่เห็น) เป็น JSON */
+  /** Export asset ที่ผูกกับ parcel ที่ตรง filter ปัจจุบัน — รูปแบบเดียวกับที่
+   *  AdminCrawlerPage.jsx export ให้ modal "รายการใหม่" (field ตรงกับที่
+   *  landsmaps_supabase.get_new_assets() ใช้ปกติ) เอาไฟล์นี้ไปรันกับ
+   *  landsmaps_collector_local.py --file <ไฟล์นี้> ได้เลย — ใช้เวลาอยากรีรัน
+   *  เฉพาะโฉนดที่ mismatch/not_found ให้ landsmaps ลองดึงพิกัดใหม่ */
   const exportFilteredJson = async () => {
     setExporting(true)
     try {
@@ -240,17 +253,46 @@ export default function AdminParcelsPage() {
         alert('ไม่มีรายการที่ตรง filter ให้ export')
         return
       }
+
+      // 1) ดึง parcel ทุกแถวที่ตรง filter จริง (ไม่ใช่แค่หน้าที่เห็น)
       const pageSize = 1000
       let from = 0
-      let all = []
+      let allParcels = []
       while (true) {
         const qq = buildParcelsQuery(matchingAssetIds) // สร้าง query builder ใหม่ทุกรอบ — ตัวเดิม reuse ข้าม .range() ไม่ได้ปลอดภัย
         const { data, error } = await qq.order('id', { ascending: true }).range(from, from + pageSize - 1)
         if (error) throw error
-        all = all.concat(data || [])
+        allParcels = allParcels.concat(data || [])
         if (!data || data.length < pageSize) break
         from += pageSize
       }
+      if (allParcels.length === 0) {
+        alert('ไม่มีรายการที่ตรง filter ให้ export')
+        return
+      }
+
+      // 2) หา asset id ทั้งหมดที่ผูกกับ parcel เหล่านี้ (dedupe — parcel เดียวอาจ
+      //    ผูกหลาย asset ได้ เช่นห้องชุดในตึกเดียวกันใช้โฉนดที่ดินร่วมกัน)
+      const parcelIds = allParcels.map(p => p.id)
+      const chunkSize = 200
+      const assetIdSet = new Set()
+      for (let i = 0; i < parcelIds.length; i += chunkSize) {
+        const chunk = parcelIds.slice(i, i + chunkSize)
+        const { data, error } = await supabase.from('asset_parcels').select('asset_id').in('parcel_id', chunk)
+        if (error) throw error
+        for (const row of data || []) assetIdSet.add(row.asset_id)
+      }
+      const assetIds = [...assetIdSet]
+
+      // 3) ดึง asset เต็มรูปแบบตาม NEW_ASSETS_FIELDS
+      let allAssets = []
+      for (let i = 0; i < assetIds.length; i += chunkSize) {
+        const chunk = assetIds.slice(i, i + chunkSize)
+        const { data, error } = await supabase.from('assets').select(NEW_ASSETS_FIELDS).in('id', chunk)
+        if (error) throw error
+        allAssets = allAssets.concat(data || [])
+      }
+
       const payload = {
         exported_at: new Date().toISOString(),
         filters: {
@@ -258,12 +300,8 @@ export default function AdminParcelsPage() {
           tag: tagFilter || null, deed_search: deedSearch || null,
           asset_search: assetSearch || null, date_from: dateFrom || null, date_to: dateTo || null,
         },
-        total: all.length,
-        parcels: all.map(p => ({
-          id: p.id, provid: p.provid, amph2: p.amph2, parcelno: p.parcelno,
-          latitude: p.latitude, longitude: p.longitude, verify_status: p.verify_status,
-          tag: p.tag, land_price_per_sqw: p.land_price_per_sqw,
-        })),
+        total: allAssets.length,
+        assets: allAssets,
       }
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
