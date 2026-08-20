@@ -7,6 +7,60 @@
 
 ---
 
+## 2026.08.21-1
+ 
+### Fixed — SignUpPage / AccountPage: error message โชว์ `{}` แทนข้อความที่อ่านได้
+ 
+- `[SignUpPage.jsx]` เดิม error handling หลัง `signUp()` fail เขียนไว้แค่
+  `setError(err.message === 'User already registered' ? '...' : err.message)`
+  — ถ้า `err.message` เป็น `undefined` หรือ Auth server คืน error object ที่
+  ไม่มี field `message` มาตรฐาน (เช่นตอนที่ custom SMTP ส่งอีเมลยืนยันไม่
+  สำเร็จกลางทาง แล้ว Auth server ส่ง error กลับมาไม่ครบ) จะได้ข้อความที่
+  อ่านไม่รู้เรื่อง (พบจริงว่าขึ้น `{}` บนหน้าเว็บ) เปลี่ยนเป็น:
+  - เช็ค `typeof err.message === 'string' && err.message.trim()` ก่อนใช้
+    ค่านั้นแสดงผล
+  - ถ้าไม่ผ่านเงื่อนไข fallback เป็นข้อความไทยกลางๆ
+    "สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" แทนที่จะปล่อยให้ React
+    render ค่า raw ที่ไม่ใช่ string ที่อ่านได้
+  - เพิ่ม `console.error('[SignUp] error:', err)` log raw error object ทุก
+    ครั้งที่ fail ไว้เสมอ ช่วย debug ครั้งหน้าได้เร็วขึ้นโดยไม่ต้องเดาจาก
+    ข้อความที่ user เห็นอย่างเดียว
+- `[AccountPage.jsx]` แก้ error handling ของ `updateUser({ password })` ด้วย
+  pattern เดียวกัน (fallback ข้อความไทย + `console.error` log) — จุดนี้ยัง
+  ไม่เจอบั๊กจริงแต่เป็นความเสี่ยงแบบเดียวกัน แก้ป้องกันไว้ล่วงหน้าตอนพบ
+  บั๊กที่ `SignUpPage.jsx`
+
+### Discovered — Custom SMTP (Resend) กับ sender `onboarding@resend.dev` ใช้ด้วยกันไม่ได้
+ 
+- `[infra]` ตั้งค่า Custom SMTP ใน Supabase (Authentication → Emails → SMTP
+  Settings) ด้วย Resend (`smtp.resend.com`) เพื่อแก้ email template ภาษาไทย
+  ได้ (ฟีเจอร์แก้ template ต้องมี custom SMTP ก่อนถึงจะใช้ได้ — ข้อจำกัดของ
+  Supabase free tier) แต่ตั้ง sender เป็น `onboarding@resend.dev` (sender
+  ทดสอบของ Resend เอง เพราะ ART ยังไม่มีโดเมนของตัวเองให้ verify)
+- `[infra]` ทดสอบสมัครสมาชิกจริงแล้วเจอ error ทันที (แสดงเป็น `{}` ก่อนแก้
+  frontend ข้างบน) — ต้นเหตุที่คาดไว้: `onboarding@resend.dev` ใช้ได้เฉพาะ
+  ผ่าน Resend API เท่านั้น ไม่รองรับการส่งผ่าน SMTP relay ตรงๆ (ซึ่งเป็นวิธี
+  ที่ Supabase Custom SMTP ใช้) ทำให้ Auth server ส่งอีเมลยืนยันไม่สำเร็จ
+  ตอน `signUp()` แล้ว error กลับมาที่ frontend
+- `[infra]` ทางแก้ชั่วคราวที่แนะนำ: **ปิด Custom SMTP** กลับไปใช้ email
+  service ของ Supabase เอง (ใช้งานได้จริง แค่ branding เป็นของ Supabase —
+  ไม่มี custom template ภาษาไทยจนกว่าจะเปิด custom SMTP ใหม่ได้) จนกว่า ART
+  จะมีโดเมนของตัวเองมา verify กับ Resend
+- `[infra]` ยังไม่ได้ยืนยัน root cause 100% เพราะไม่มีสิทธิ์เข้า Supabase
+  Auth Logs โดยตรง — แนะนำเช็ค **Authentication → Logs** ที่ timestamp ที่
+  สมัครแล้ว fail เพื่อดูข้อความ error จริงจาก Auth server ก่อนสรุปแน่นอน
+  
+### Context
+ 
+พบระหว่างทดสอบ flow "สมัครสมาชิก → เช็คอีเมลยืนยัน" ของฟีเจอร์ Public
+Sign-up ที่เพิ่งทำเสร็จใน `2026.08.20-2` — เป็นครั้งแรกที่ทดสอบ end-to-end
+จริงหลัง deploy โค้ด sign-up ไปแล้ว บั๊ก frontend (`{}`) เป็นปัญหาจริงที่ต้อง
+แก้ไม่ว่าจะแก้ SMTP หรือไม่ก็ตาม เพราะ error message ที่อ่านไม่ได้ทำให้
+debug ยากขึ้นเสมอ ส่วนปัญหา SMTP/Resend เป็นเรื่อง infra config ที่ยัง
+ต้องตัดสินใจว่าจะซื้อโดเมนหรือปิด custom SMTP ไปก่อน
+
+---
+
 ## 2026.08.20-2
  
 ### Added — Public Sign-up (เปิดสมัครสมาชิกสาธารณะ)

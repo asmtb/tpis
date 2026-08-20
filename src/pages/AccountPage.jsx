@@ -36,7 +36,12 @@ export default function AccountPage() {
     setSubmit(false)
 
     if (err) {
-      setError(err.message)
+      console.error('[Account] update password error:', err)
+      setError(
+        typeof err.message === 'string' && err.message.trim()
+          ? err.message
+          : 'เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'
+      )
       return
     }
 

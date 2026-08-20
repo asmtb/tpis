@@ -43,9 +43,17 @@ export default function SignUpPage() {
     setSubmit(false)
 
     if (err) {
-      setError(err.message === 'User already registered'
-        ? 'อีเมลนี้มีบัญชีอยู่แล้ว'
-        : err.message)
+      // log raw error ไว้ debug ใน console เสมอ — err.message อาจไม่มี
+      // (เช่น Auth server ส่ง error กลับมาไม่ครบ ตอนที่ custom SMTP ส่งอีเมล
+      // ไม่สำเร็จ) กัน user เห็นข้อความที่อ่านไม่รู้เรื่องอย่าง "{}" หรือ "undefined"
+      console.error('[SignUp] error:', err)
+      let msg = 'สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'
+      if (err.message === 'User already registered') {
+        msg = 'อีเมลนี้มีบัญชีอยู่แล้ว'
+      } else if (typeof err.message === 'string' && err.message.trim()) {
+        msg = err.message
+      }
+      setError(msg)
       return
     }
 
