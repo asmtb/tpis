@@ -172,16 +172,80 @@ input, select, textarea { font-family: inherit; }
 .nav-link:hover  { background: rgba(255,255,255,0.10); color: #fff; }
 .nav-link.active { background: rgba(255,255,255,0.16); color: #fff; }
 
-/* Auth widget in navbar */
-.navbar-auth       { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.navbar-auth-email { font-size: 0.78rem; color: rgba(255,255,255,0.72); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+/* Auth widget in navbar — ปุ่ม "เข้าสู่ระบบ" (guest เท่านั้น, user login แล้ว
+   ใช้ .navbar-user-menu แทน) */
 .navbar-auth-btn   {
   font-size: 0.8rem; font-weight: 600; white-space: nowrap;
   padding: 6px 12px; border-radius: var(--r-sm);
   background: rgba(255,255,255,0.10); color: #fff; border: 1px solid rgba(255,255,255,0.18);
   cursor: pointer; transition: background 0.14s;
+  /* ไม่ต้อง margin-left:auto เอง — ปุ่มนี้อยู่หลัง .navbar-wishlist-btn เสมอ
+     (ซึ่งเห็นทั้ง guest/user) ซึ่งเป็นตัวที่ดันกลุ่มขวาทั้งหมดชิดขอบแล้ว */
 }
 .navbar-auth-btn:hover { background: rgba(255,255,255,0.20); }
+
+/* ── ไอคอนกลมฝั่งขวาของ navbar (wishlist / user menu) ── */
+.navbar-icon-btn {
+  position: relative;
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.14s;
+}
+.navbar-icon-btn:hover { background: rgba(255,255,255,0.20); }
+
+/* Wishlist icon — ตัวแรกสุดของกลุ่มขวา เลยรับ margin-left:auto แทน .dark-toggle เดิม */
+.navbar-wishlist-btn { margin-left: auto; }
+.navbar-wishlist-btn svg { color: #fff; }
+.navbar-badge {
+  position: absolute; top: -5px; right: -5px;
+  min-width: 16px; height: 16px; padding: 0 3px;
+  border-radius: 999px; background: #F97316; color: #fff;
+  font-size: 0.62rem; font-weight: 700; line-height: 16px; text-align: center;
+  box-shadow: 0 0 0 2px rgba(0,69,160,0.94);
+}
+
+/* User menu + dropdown */
+.navbar-user-menu { position: relative; flex-shrink: 0; }
+.navbar-dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  min-width: 220px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.16);
+  padding: 6px; z-index: 1100;
+}
+.navbar-dropdown-user {
+  padding: 8px 10px; font-size: 0.8rem; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.navbar-dropdown-divider { height: 1px; background: var(--border); margin: 4px 2px; }
+.navbar-dropdown-item {
+  display: block; width: 100%; text-align: left;
+  padding: 8px 10px; border-radius: var(--r-sm);
+  font-size: 0.85rem; color: var(--text-2); background: none; border: none;
+  cursor: pointer; transition: background 0.12s;
+}
+.navbar-dropdown-item:hover { background: var(--surface-alt); color: var(--text); }
+
+/* Detail page — ปุ่มบันทึกทรัพย์ (♡) ใหญ่ ข้าง badges */
+.detail-wishlist-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.78rem; font-weight: 600;
+  padding: 4px 11px; border-radius: 999px;
+  background: var(--surface-alt); color: var(--text-2);
+  border: 1.5px solid var(--border);
+  cursor: pointer; transition: background 0.14s, color 0.14s, border-color 0.14s;
+}
+.detail-wishlist-btn:hover  { border-color: #F43F5E; color: #F43F5E; }
+.detail-wishlist-btn.active { background: #FFE4E6; color: #E11D48; border-color: #FDA4AF; }
+
+/* Sign-in / Sign-up page — ลิงก์สลับหน้าด้านล่างฟอร์ม */
+.signin-switch {
+  margin-top: 16px; text-align: center;
+  font-size: 0.82rem; color: var(--text-3);
+}
+.signin-switch a { color: var(--accent); font-weight: 600; }
 
 /* Sign-in page */
 .signin-wrap  { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 56px); padding: 20px; }
@@ -204,7 +268,8 @@ input, select, textarea { font-family: inherit; }
   color: rgba(236,236,236,0.85);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: background 0.15s, color 0.15s;
-  margin-left: auto;
+  /* margin-left:auto ย้ายไปอยู่ที่ .navbar-wishlist-btn แทนแล้ว เพราะตอนนี้
+     ลำดับฝั่งขวาคือ ♡ Wishlist → 🌙 Dark toggle → 👤 User menu */
 }
 .dark-toggle:hover { background: rgba(52,58,66,0.95); color: #fff; }
 
@@ -419,6 +484,34 @@ input, select, textarea { font-family: inherit; }
   position: relative; overflow: hidden;
 }
 .card-img img  { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Wishlist heart button (ปุ่ม ♡ บนการ์ด) ── */
+.wishlist-heart {
+  position: absolute; z-index: 5;
+  width: 28px; height: 28px; border-radius: 999px;
+  background: rgba(0,0,0,0.42); border: none;
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.15s, transform 0.1s;
+  backdrop-filter: blur(2px);
+}
+.wishlist-heart:hover  { background: rgba(0,0,0,0.60); transform: scale(1.08); }
+.wishlist-heart.active { color: #F43F5E; background: rgba(255,255,255,0.92); }
+.wishlist-heart.active:hover { background: #fff; }
+
+/* horizontal card — มุมขวาบนของรูป (ไม่มี badge อื่นชนตรงนั้น) */
+.card-img-heart { top: 8px; right: 8px; }
+
+/* grid card — score badge อยู่ขวาบนแล้ว (.card-grid-score) วางหัวใจขวาล่างแทน */
+.card-grid-heart { bottom: 8px; right: 8px; }
+
+/* list card — ไม่ absolute วางต่อท้ายแถวเหมือน score badge */
+.card-list-heart {
+  position: static; width: 26px; height: 26px; flex-shrink: 0;
+  background: var(--surface-alt); color: var(--text-3); border: 1px solid var(--border);
+}
+.card-list-heart:hover  { background: var(--surface-alt); color: #F43F5E; transform: none; }
+.card-list-heart.active { color: #F43F5E; background: var(--surface-alt); border-color: transparent; }
 .card-img-ph {
   width: 100%; height: 100%;
   display: flex; flex-direction: column;

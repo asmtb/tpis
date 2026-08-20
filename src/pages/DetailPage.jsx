@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import LeafletMap from '../components/LeafletMap.jsx'
+import { useAuth } from '../lib/AuthContext.jsx'
+import { useWishlist } from '../lib/WishlistContext.jsx'
 import {
   fmtPriceFull, fmtArea, fmtDate, fmtLocation,
   typeClass, typeLabel, statusInfo, issaleInfo,
@@ -83,8 +85,23 @@ export default function DetailPage() {
   const [error, setError]     = useState(null)
   const [lightbox, setLightbox] = useState(null)   // URL ที่จะแสดงใน lightbox
 
+  const { user } = useAuth()
+  const { isSaved, toggle } = useWishlist()
+  const navigate = useNavigate()
+  const location2 = useLocation()   // ตั้งชื่อ location2 กัน shadow ตัวแปร location (fmtLocation) ด้านล่าง
+
   const openLightbox  = useCallback((url) => setLightbox(url), [])
   const closeLightbox = useCallback(() => setLightbox(null), [])
+
+  const assetIdNum = Number(id)
+  const saved = isSaved(assetIdNum)
+  const handleWishlistClick = () => {
+    if (!user) {
+      navigate('/signin', { state: { from: location2 } })
+      return
+    }
+    toggle(assetIdNum)
+  }
 
   useEffect(() => {
     if (!id) return
@@ -198,6 +215,18 @@ export default function DetailPage() {
                         <span className="coord-badge">📍 แสดงพิกัด</span>
                       )}
                       */}
+                      <button
+                        type="button"
+                        className={`detail-wishlist-btn${saved ? ' active' : ''}`}
+                        onClick={handleWishlistClick}
+                        title={saved ? 'ลบออกจากรายการบันทึก' : 'บันทึกทรัพย์นี้'}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'}
+                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                        </svg>
+                        {saved ? 'บันทึกแล้ว' : 'บันทึกรายการนี้'}
+                      </button>
                     </div>
                     <div className="detail-title">{tl}</div>
                     <div className="detail-location">📍 {location}</div>

@@ -6,6 +6,135 @@
 `[WIP]` = ยังทำไม่ครบทุกกลุ่มที่วางแผนไว้ ยังไม่ deploy จริง
 
 ---
+
+## 2026.08.20-2
+ 
+### Added — Public Sign-up (เปิดสมัครสมาชิกสาธารณะ)
+ 
+- `[SignUpPage.jsx]` (ไฟล์ใหม่) — ฟอร์มสมัครสมาชิก email+password เรียก
+  `signUp()` ใหม่ใน `AuthContext.jsx` รองรับทั้ง 2 กรณีตาม Supabase Auth
+  "Confirm email" setting:
+  - ถ้าปิด confirm email → `data.session` มาทันที → เข้าระบบเลย
+  - ถ้าเปิด confirm email (ตั้งค่าไว้แล้วที่ Supabase Dashboard) →
+    `data.session` เป็น `null` จนกว่าจะกดลิงก์ยืนยันในอีเมล → โชว์การ์ด
+    "เช็คอีเมลเพื่อยืนยัน" ค้างไว้แทนที่จะ redirect ทันที
+  - validate รหัสผ่านขั้นต่ำ 6 ตัวและต้องพิมพ์ซ้ำให้ตรงกันก่อน submit
+- `[AuthContext.jsx]` เพิ่ม `signUp()` (`supabase.auth.signUp()`), แก้ comment
+  บนสุดของไฟล์ที่เดิมเขียนว่า "มีแค่ admin คนเดียว ไม่มีหน้า sign-up สาธารณะ"
+  ให้ตรงกับความเป็นจริงใหม่ — ย้ำว่า user ที่สมัครเองจะได้ `role='user'`
+  เสมอ (มาจาก trigger `handle_new_user()` เดิมใน migration `0001` ที่ insert
+  `public.users` ด้วย role default) ไม่มีทางได้ `role='admin'` ผ่านหน้าเว็บ
+  เลย ต้องตั้งผ่าน SQL/Dashboard เท่านั้น
+- `[SignInPage.jsx]` แก้ default redirect หลัง login จาก `/admin` (สมมติฐาน
+  เดิมว่ามีแต่ admin login) → `/` (เพราะตอนนี้ user ทั่วไปก็ login ผ่านหน้า
+  นี้ด้วย), หัวข้อจาก "เข้าสู่ระบบ Admin" → "เข้าสู่ระบบ" เฉยๆ, เพิ่มลิงก์
+  "ยังไม่มีบัญชี? สมัครสมาชิก" ไปหน้า `/signup`
+- `[App.jsx]` เพิ่ม route `/signup`
+*หมายเหตุ — ต้องตั้งค่าที่ Supabase Dashboard เองด้วย (ไม่ใช่ในโค้ด):*
+*Authentication → Providers → Email → เปิด "Allow new users to sign up" +*
+*"Confirm email"; Authentication → URL Configuration → ตั้ง Site URL และ*
+*Redirect URL ให้ชี้ไปที่โดเมนจริง (`https://tpis.pages.dev`) แทน*
+*`http://localhost:3000` — ไม่งั้นลิงก์ยืนยันตัวตนในอีเมลที่ส่งจริงจะพัง*
+ 
+### Added — Wishlist (บันทึกทรัพย์ที่สนใจ)
+ 
+- `[WishlistContext.jsx]` (ไฟล์ใหม่) — ใช้ตาราง `public.user_watchlists` ที่
+  มีอยู่แล้วตั้งแต่ baseline schema (`0001`, RLS policy "own watchlist" +
+  table grant ให้ `authenticated` จาก migration `0012` ครบอยู่แล้ว) **ไม่มี
+  SQL migration ใหม่เลย** — ตารางนี้มีอยู่แล้วแต่ยังไม่เคยมีหน้าเว็บใช้งาน
+  จริงมาก่อน
+  - ทำเป็น React Context (ไม่ใช่ hook เดี่ยวๆ) เพราะต้อง share state เดียวกัน
+    ข้าม component — กด ♡ ใน `PropertyCard` ต้องอัปเดต badge count ใน
+    `Navbar` ทันทีโดยไม่ต้อง refetch ใหม่ทั้งก้อน
+  - `toggle(assetId)` ทำ optimistic update ก่อนยิง request จริง พร้อม
+    rollback state ถ้า insert/delete ฝั่ง Supabase fail
+  - โหลด asset_id ทั้งหมดที่ user ปัจจุบัน save ไว้ครั้งเดียวตอน mount
+    (ผูกกับ `user` จาก `AuthContext` — เปลี่ยน user หรือ logout ก็ refetch
+    ใหม่อัตโนมัติผ่าน `useEffect` dependency)
+- `[PropertyCard.jsx]` เพิ่มปุ่ม ♡ (`WishlistHeart`) ทั้ง 3 variant
+  (horizontal/grid/list) — คลิกแล้ว `stopPropagation()` + `preventDefault()`
+  กันไม่ให้โดน `<Link>` ของการ์ดทั้งใบ navigate ไปหน้า detail ไปด้วย ถ้ายัง
+  ไม่ login จะเด้งไป `/signin` พร้อมจำ path ปัจจุบันไว้ (`location.state.from`)
+  เพื่อเด้งกลับมาอัตโนมัติหลัง login สำเร็จ
+  - ตำแหน่งหัวใจต่าง variant: horizontal มุมขวาบนของรูป (`.card-img-heart`),
+    grid มุมขวาล่าง (`.card-grid-heart` — เลี่ยงชนกับ score badge ที่อยู่
+    ขวาบนอยู่แล้ว), list ต่อท้ายแถวแบบ static ไม่ absolute
+- `[DetailPage.jsx]` เพิ่มปุ่ม ♡ ใหญ่ข้าง badges (type/status/saletypename)
+  บน hero section ใช้ logic เดียวกับ `WishlistHeart` แต่เขียนเป็นปุ่มแยก
+  พร้อม label "บันทึกรายการนี้" / "บันทึกแล้ว"
+- `[WishlistPage.jsx]` (ไฟล์ใหม่) — หน้า `/wishlist` ดึง `asset_id` จาก
+  `WishlistContext` แล้ว fetch รายละเอียดเต็มจากตาราง `assets` +
+  เช็คพิกัดจาก `assets_map` (สำหรับ `hasCoord` prop) พร้อมกันด้วย
+  `Promise.all()` — reuse `PropertyCard` variant `grid` เดิมทั้งหมด ไม่มี
+  card component ใหม่ มี empty state ชวนกลับไปหน้าค้นหาถ้ายังไม่มีรายการ
+  บันทึกไว้เลย
+- `[RequireAuth.jsx]` (ไฟล์ใหม่) — route guard คู่กับ `RequireAdmin.jsx`
+  เดิม แต่เช็คแค่ `!!user` ไม่บังคับ role — ใช้ครอบ `/wishlist` และ
+  `/account` (user ทั่วไปเข้าได้ ไม่ต้องเป็น admin)
+- `[App.jsx]` เพิ่ม route `/wishlist` ครอบด้วย `<RequireAuth>`, ห่อทั้งแอปด้วย
+  `<WishlistProvider>` (อยู่ใต้ `<AuthProvider>` เพราะต้องใช้ `useAuth()`
+  ข้างในเพื่อรู้ user ปัจจุบันก่อน fetch watchlist)
+
+### Added — จัดการบัญชี (เปลี่ยนรหัสผ่าน)
+ 
+- `[AccountPage.jsx]` (ไฟล์ใหม่) — หน้า `/account` ฟอร์มเปลี่ยนรหัสผ่านจริง
+  เรียก `supabase.auth.updateUser({ password })` ตรงๆ (ผ่าน Auth API ไม่ใช่
+  table query เลย RLS ไม่เกี่ยวข้อง), โชว์อีเมลปัจจุบันแบบ read-only,
+  validate ความยาวขั้นต่ำ + พิมพ์ซ้ำตรงกันเหมือน `SignUpPage.jsx`
+- `[App.jsx]` เพิ่ม route `/account` ครอบด้วย `<RequireAuth>`
+
+### Changed — Navbar: เปลี่ยนจากโชว์อีเมลตรงๆ เป็น icon + dropdown menu
+ 
+- `[Navbar.jsx]` เดิมโชว์อีเมล user เต็มๆ ค้างไว้บน navbar ตลอดเวลา
+  (`.navbar-auth-email`) พร้อมปุ่ม "ออกจากระบบ" ลอยแยกต่างหาก — เปลี่ยนเป็น
+  ไอคอนคน (👤) เดียว กดแล้วเปิด dropdown โครงสร้างตามลำดับที่ตกลงกันไว้:
+  1. แถวแรก: อีเมล/ชื่อ user (ไม่ใช่ปุ่ม แค่แสดงข้อมูล)
+  2. เส้นคั่น
+  3. "จัดการบัญชี" → ลิงก์ไป `/account`
+  4. เส้นคั่น
+  5. "ออกจากระบบ" (ย้ายมาจากปุ่มลอยเดิม ตอนนี้อยู่ใน dropdown ทั้งหมด)
+  - ปิด dropdown อัตโนมัติเมื่อคลิกข้างนอก (click-outside pattern ผ่าน
+    `useRef` + `mousedown` listener)
+- `[Navbar.jsx]` เรียงลำดับไอคอนฝั่งขวาใหม่ตามที่ตกลงกันไว้:
+  **♡ Wishlist → 🌙 Dark mode toggle → 👤 User menu**
+  - ปุ่ม ♡ Wishlist โชว์ badge ตัวเลขจำนวนที่บันทึกไว้ (ไม่โชว์ badge ถ้า
+    เป็น 0), คลิกไปหน้า `/wishlist` โดยตรง (ตัว `WishlistPage` เองมี
+    `RequireAuth` guard คอย redirect ไป `/signin` ให้ถ้ายังไม่ login)
+- `[index.css]` เพิ่ม `.navbar-icon-btn`, `.navbar-wishlist-btn`,
+  `.navbar-badge`, `.navbar-user-menu`, `.navbar-dropdown`,
+  `.navbar-dropdown-user`, `.navbar-dropdown-divider`,
+  `.navbar-dropdown-item` — ลบ `.navbar-auth-email` เดิมที่ไม่ใช้แล้ว, ย้าย
+  `margin-left: auto` จาก `.dark-toggle` ไปที่ `.navbar-wishlist-btn` แทน
+  (ตัวแรกสุดของกลุ่มขวาใหม่ที่ต้องดันกลุ่มทั้งหมดชิดขอบ)
+- `[index.css]` เพิ่ม `.wishlist-heart` (+ `.card-img-heart`,
+  `.card-grid-heart`, `.card-list-heart`) สำหรับปุ่ม ♡ บนการ์ด,
+  `.detail-wishlist-btn` สำหรับปุ่ม ♡ ใหญ่บน `DetailPage`, `.signin-switch`
+  สำหรับลิงก์สลับหน้า sign-in/sign-up
+
+### Context
+ 
+งานรอบนี้เป็น Phase แรกของแผน Wishlist ที่ปรึกษากันไว้ (ดู
+`recent_updates` ในบันทึกโปรเจกต์ข้อ 1) แต่ระหว่างวางแผนพบว่าระบบ auth
+เดิมออกแบบมาเฉพาะ admin คนเดียว ไม่มี concept ของ "user ทั่วไป login" เลย
+— เลยขยายงานเป็น 3 ส่วนคู่กัน (Public Sign-up → Navbar dropdown → Wishlist)
+แทนที่จะทำ Wishlist เดี่ยวๆ ตามแผนเดิม เพราะ Wishlist พึ่ง public sign-up
+อยู่ ไม่มีทางแยกทำได้จริงถ้ายังไม่เปิดให้ user ทั่วไปสมัครได้ก่อน
+ 
+ฟีเจอร์ที่ยังไม่ทำในรอบนี้ (ตามที่คุยไว้ตอนวางแผน แต่ยังไม่ implement):
+- `price_at_save` snapshot ราคา ณ ตอนบันทึก wishlist (optional, ต้องมี
+  migration ใหม่เพิ่ม column)
+- แจ้งเตือนนัดประมูล/ราคาเปลี่ยนสำหรับทรัพย์ใน wishlist (ผูกกับ
+  `user_alerts` ที่มีอยู่แล้ว)
+- Wishlist comparison (เทียบ 2-3 ทรัพย์ side-by-side)
+- Export wishlist เป็น PDF/Excel
+- Bulk-add จาก GIS Map (เลือกพื้นที่แล้วเพิ่มทั้งหมดเข้า wishlist ทีเดียว)
+
+### Build
+ 
+- ทดสอบ `npm run build` (vite) ผ่านไม่มี syntax/import error — commit
+  ฐานที่ใช้อ้างอิงคือ `2d4d204` (2026-08-20)
+ 
+---
  
 ## 2026.08.20-1
  
@@ -38,7 +167,7 @@
 - `[AdminCrawlerPage.jsx]` หัวข้อตารางเปลี่ยนจาก "Crawler Runs (15 รอบล่าสุด)"
   แบบข้อความตายตัว เป็น "Crawler Runs (ทั้งหมด N รอบ)" คำนวณจำนวนจริงแบบ dynamic
   ทุกครั้งที่โหลดหน้า
-  
+
 ### Context
  
 งานสองอย่างนี้เป็นส่วนหนึ่งของการแก้บั๊ก mismatch ปลอมที่ไล่ตรวจจากรูป Table

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 
 export default function SignInPage() {
@@ -10,7 +10,11 @@ export default function SignInPage() {
   const [submitting, setSubmit]   = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-  const from = location.state?.from?.pathname || '/admin'
+  // เดิม default เป็น '/admin' เพราะมีแค่ admin login — ตอนนี้ user ทั่วไป
+  // ก็ login ผ่านหน้านี้ได้เหมือนกัน (public sign-up) เลยเปลี่ยน default
+  // กลับไปหน้าแรกแทน ส่วน admin ที่ถูก redirect มาจาก RequireAdmin ยังได้
+  // from ที่ถูกต้องจาก location.state เหมือนเดิม
+  const from = location.state?.from?.pathname || '/'
 
   // login อยู่แล้ว (เช่นเปิดแท็บใหม่ หรือ refresh หน้า) — เด้งกลับไปหน้าที่ตั้งใจจะมาเลย
   if (!loading && user) return <Navigate to={from} replace />
@@ -42,7 +46,7 @@ export default function SignInPage() {
           </svg>
           <span>TPIS</span>
         </div>
-        <div className="signin-title">เข้าสู่ระบบ Admin</div>
+        <div className="signin-title">เข้าสู่ระบบ</div>
         <div className="signin-sub">Thailand Property Intelligence System</div>
 
         {error && <div className="alert error" style={{ marginTop: 14 }}>{error}</div>}
@@ -73,6 +77,10 @@ export default function SignInPage() {
         <button className="abtn primary signin-submit" type="submit" disabled={submitting}>
           {submitting ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
         </button>
+
+        <div className="signin-switch">
+          ยังไม่มีบัญชี? <Link to="/signup">สมัครสมาชิก</Link>
+        </div>
       </form>
     </div>
   )

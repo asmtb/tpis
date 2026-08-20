@@ -2,9 +2,15 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabase.js'
 
 /**
- * Auth ของ TPIS ใช้ Supabase Auth (email + password) แบบง่าย — มีแค่ admin คนเดียว
- * ไม่มีหน้า sign-up สาธารณะ ต้องสร้าง user ผ่าน Supabase Dashboard เอง แล้วรัน SQL
- * ตั้ง role='admin' ในตาราง public.users (ดู README/CHANGELOG ประกอบ)
+ * Auth ของ TPIS ใช้ Supabase Auth (email + password)
+ *
+ * เปิด public sign-up แล้ว — ใครก็สมัครผ่านหน้า /signup ได้ (บังคับยืนยันอีเมล
+ * ก่อน login จริงตาม Supabase Auth setting "Confirm email") แต่ role ของคนที่
+ * สมัครเองจะเป็น 'user' เสมอ ("current_user_role() = 'admin' AND ...") เพราะ
+ * trigger handle_new_user() (migration 0001) insert public.users ด้วย role
+ * default = 'user' เท่านั้น — ไม่มีหน้าเว็บไหนให้ตั้ง role='admin' เองได้เลย
+ * ต้องรัน SQL ตรงๆ ผ่าน Supabase Dashboard (ดู README/CHANGELOG ประกอบ) —
+ * เจตนาให้มี admin ได้แค่คนที่เจ้าของระบบตั้งเองเท่านั้น
  *
  * role มาจากตาราง public.users (ผูกกับ auth.users ผ่าน trigger handle_new_user())
  * RLS ของตารางที่ต้องแก้ไข (เช่น parcels) เช็ค current_user_role() = 'admin' ที่ฝั่ง
@@ -56,6 +62,13 @@ export function AuthProvider({ children }) {
   const signIn = (email, password) =>
     supabase.auth.signInWithPassword({ email, password })
 
+  // สมัครสมาชิกใหม่ — trigger handle_new_user() จะ insert public.users
+  // ให้อัตโนมัติด้วย role='user' เสมอ (ดู comment บนสุดของไฟล์)
+  // ถ้าเปิด "Confirm email" ไว้ที่ Supabase Dashboard, session จะยังไม่ active
+  // จนกว่า user จะกดยืนยันจากอีเมล — data.user จะมีค่าแต่ data.session เป็น null
+  const signUp = (email, password) =>
+    supabase.auth.signUp({ email, password })
+
   const signOut = () => supabase.auth.signOut()
 
   const value = {
@@ -64,6 +77,7 @@ export function AuthProvider({ children }) {
     loading,
     isAdmin: role === 'admin',
     signIn,
+    signUp,
     signOut,
   }
 

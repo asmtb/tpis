@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
+import { useWishlist } from '../lib/WishlistContext.jsx'
 
 const SunIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -24,6 +25,21 @@ const MoonIcon = () => (
   </svg>
 )
 
+const HeartIcon = ({ filled = false }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'}
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+  </svg>
+)
+
+const UserIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
+  </svg>
+)
+
 export default function Navbar() {
   const [query, setQuery] = useState('')
   const [dark, setDark]   = useState(() =>
@@ -31,14 +47,35 @@ export default function Navbar() {
       ? localStorage.getItem('tpis-theme') === 'dark'
       : false
   )
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
   const navigate = useNavigate()
   const { user, isAdmin, signOut } = useAuth()
+  const { count: wishlistCount } = useWishlist()
 
   useEffect(() => {
     const theme = dark ? 'dark' : 'light'
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('tpis-theme', theme)
   }, [dark])
+
+  // ปิด dropdown เมื่อคลิกข้างนอก
+  useEffect(() => {
+    if (!menuOpen) return
+    const onClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [menuOpen])
+
+  const handleSignOut = async () => {
+    setMenuOpen(false)
+    await signOut()
+    navigate('/')
+  }
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -90,22 +127,16 @@ export default function Navbar() {
         ))}
       </div>
 
-      {/* Auth widget */}
-      {user ? (
-        <div className="navbar-auth">
-          <span className="navbar-auth-email" title={user.email}>
-            {isAdmin ? '👤 ' : ''}{user.email}
-          </span>
-          <button
-            className="navbar-auth-btn"
-            onClick={async () => { await signOut(); navigate('/') }}
-          >
-            ออกจากระบบ
-          </button>
-        </div>
-      ) : (
-        <NavLink to="/signin" className="navbar-auth-btn">เข้าสู่ระบบ</NavLink>
-      )}
+      {/* ── ฝั่งขวา: ♡ Wishlist → 🌙 Dark toggle → 👤 User menu ── */}
+
+      {/* Wishlist — เห็นทั้ง guest/user แต่คลิกแล้วถ้ายังไม่ login จะเด้งไป /signin
+          (จัดการ redirect ที่ WishlistPage/RequireAuth ผ่าน route guard อยู่แล้ว) */}
+      <NavLink to="/wishlist" className="navbar-icon-btn navbar-wishlist-btn" title="ทรัพย์ที่บันทึกไว้">
+        <HeartIcon filled={wishlistCount > 0} />
+        {wishlistCount > 0 && (
+          <span className="navbar-badge">{wishlistCount > 99 ? '99+' : wishlistCount}</span>
+        )}
+      </NavLink>
 
       {/* Dark mode toggle */}
       <button
@@ -115,6 +146,40 @@ export default function Navbar() {
       >
         {dark ? <SunIcon /> : <MoonIcon />}
       </button>
+
+      {/* User menu */}
+      {user ? (
+        <div className="navbar-user-menu" ref={menuRef}>
+          <button
+            className="navbar-icon-btn"
+            onClick={() => setMenuOpen(o => !o)}
+            title="บัญชีผู้ใช้"
+          >
+            <UserIcon />
+          </button>
+          {menuOpen && (
+            <div className="navbar-dropdown">
+              <div className="navbar-dropdown-user" title={user.email}>
+                {isAdmin ? '👤 ' : ''}{user.email}
+              </div>
+              <div className="navbar-dropdown-divider" />
+              <Link
+                to="/account"
+                className="navbar-dropdown-item"
+                onClick={() => setMenuOpen(false)}
+              >
+                จัดการบัญชี
+              </Link>
+              <div className="navbar-dropdown-divider" />
+              <button className="navbar-dropdown-item" onClick={handleSignOut}>
+                ออกจากระบบ
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <NavLink to="/signin" className="navbar-auth-btn">เข้าสู่ระบบ</NavLink>
+      )}
       </div>
     </nav>
   )

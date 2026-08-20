@@ -1,9 +1,47 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   fmtPrice, fmtArea, fmtLocation,
   typeClass, typeLabel, statusInfo,
   calcDiscount, discountClass,
 } from '../lib/utils.js'
+import { useAuth } from '../lib/AuthContext.jsx'
+import { useWishlist } from '../lib/WishlistContext.jsx'
+
+/* ปุ่ม ♡ มุมการ์ด — การ์ดทั้งใบเป็น <Link> อยู่แล้ว ต้อง stopPropagation +
+   preventDefault กันไม่ให้คลิก ♡ แล้วโดน navigate ไปหน้า detail ไปด้วย
+   ยังไม่ login → เด้งไปหน้า /signin (จำ path ปัจจุบันไว้เด้งกลับหลัง login) */
+function WishlistHeart({ assetId, className = '' }) {
+  const { user } = useAuth()
+  const { isSaved, toggle } = useWishlist()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const saved = isSaved(assetId)
+
+  const handleClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user) {
+      navigate('/signin', { state: { from: location } })
+      return
+    }
+    toggle(assetId)
+  }
+
+  return (
+    <button
+      type="button"
+      className={`wishlist-heart${saved ? ' active' : ''} ${className}`}
+      onClick={handleClick}
+      title={saved ? 'ลบออกจากรายการบันทึก' : 'บันทึกทรัพย์นี้'}
+      aria-label={saved ? 'ลบออกจากรายการบันทึก' : 'บันทึกทรัพย์นี้'}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'}
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+    </button>
+  )
+}
 
 const PIN = (
   <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
@@ -49,6 +87,7 @@ function CardHorizontal({ p, tc, tl, stCls, stLabel, score, sc, discPct, dc, loc
           ? <img src={p.url_picture} alt="" loading="lazy"
               onError={e => { e.target.style.display = 'none' }} />
           : IMG_PH}
+        <WishlistHeart assetId={p.id} className="card-img-heart" />
       </div>
 
       <div className="card-body">
@@ -121,6 +160,8 @@ function CardGrid({ p, tc, tl, stCls, stLabel, score, sc, discPct, dc, location,
           ? <img src={p.url_picture} alt="" loading="lazy"
               onError={e => { e.target.style.display = 'none' }} />
           : IMG_PH}
+        {/* score badge อยู่มุมขวาบนแล้ว (card-grid-score) เลยวางหัวใจไว้ขวาล่างแทนกันชน */}
+        <WishlistHeart assetId={p.id} className="card-grid-heart" />
         <div className="card-grid-badges">
           <span className={`type-badge ${tc}`}>{tl}</span>
           <span className={`status-badge ${stCls}`}>{stLabel}</span>
@@ -204,6 +245,7 @@ function CardList({ p, tc, tl, stCls, stLabel, score, sc, discPct, location, has
         <span className="s-val">{score}</span>
         <span className="s-star">{scoreStars(score)}</span>
       </div>
+      <WishlistHeart assetId={p.id} className="card-list-heart" />
     </Link>
   )
 }
