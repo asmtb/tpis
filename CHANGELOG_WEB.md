@@ -7,6 +7,51 @@
 
 ---
 
+## 2026.08.21-2
+
+### Added — หน้าจัดการบัญชี: ตั้งค่าแจ้งเตือนนัดประมูล (wishlist)
+
+- `[AccountPage.jsx]` เพิ่ม section ใหม่ "แจ้งเตือนนัดประมูลทางอีเมล" อยู่
+  เหนือฟอร์มเปลี่ยนรหัสผ่านเดิม:
+  - checkbox เปิด/ปิดการแจ้งเตือน (`wishlist_notify_enabled`)
+  - เมื่อเปิดแล้ว โชว์ chip ให้เลือกจำนวนวันล่วงหน้า **1 / 3 / 7 วันก่อนนัด**
+    แบบ multi-select (เลือกได้พร้อมกันหลายค่า) เก็บเป็น
+    `wishlist_reminder_days` (เช่น `[1,3,7]`)
+  - validate ก่อน save: ถ้าเปิดแจ้งเตือนไว้แต่ไม่เลือกวันไหนเลย ขึ้น error
+    "กรุณาเลือกอย่างน้อย 1 ช่วงเวลาแจ้งเตือน" กันไม่ให้บันทึกสถานะที่เปิด
+    ไว้แต่ backend job ไม่มีวันมาเทียบเลย
+  - โหลดค่าปัจจุบันจาก `public.users` (`select wishlist_notify_enabled,
+    wishlist_reminder_days`) ตอน mount และบันทึกกลับด้วย
+    `supabase.from('users').update(...)` แยกปุ่ม save ต่างหากจากฟอร์ม
+    เปลี่ยนรหัสผ่าน (คนละ concern คนละ state)
+  - error handling ตาม pattern เดียวกับที่แก้ใน `2026.08.21-1` (fallback
+    ข้อความไทยกลางๆ + `console.error` log raw error เสมอ ไม่โชว์ค่าที่
+    อ่านไม่รู้เรื่องแบบ `{}`)
+- `[index.css]` เพิ่ม `.day-chip` (+ `.day-chip.active`) — ปุ่ม chip toggle
+  ทรงกลมมนสำหรับเลือกวันแจ้งเตือน สไตล์เดียวกับปุ่มอื่นในระบบ (ใช้
+  `var(--accent)` ตอน active)
+
+### หมายเหตุ — ต้องมี migration ฝั่ง backend ก่อนใช้งานได้จริง
+
+Section นี้ query/update ตาราง `public.users` โดยตรงผ่าน Supabase client
+(ไม่ใช่ Auth API) ต้องมี **migration `0015_wishlist_reminder_prefs.sql`**
+(ส่งแยกไว้ในชุดไฟล์ backend) รันก่อน ไม่งั้นจะเจอ 2 ปัญหา:
+
+1. คอลัมน์ `wishlist_notify_enabled` / `wishlist_reminder_days` ยังไม่มีใน
+   ตาราง → query 400 error
+2. แม้มีคอลัมน์แล้วแต่ยังไม่ได้เพิ่ม RLS policy `"user update own profile"`
+   → `update()` จะถูก RLS บล็อก **เงียบๆ** (คืน 0 แถวที่ถูกแก้ไข ไม่ error
+   ให้เห็น) กดบันทึกแล้วดูเหมือนสำเร็จแต่ค่าจริงไม่เปลี่ยนเลย
+
+### Context
+
+เป็น UI-only ของฟีเจอร์ "แจ้งเตือนนัดประมูลของทรัพย์ใน wishlist ทางอีเมล"
+ตามที่ตกลงกันไว้ว่าจะทำ UI ก่อนแล้วค่อยทำ backend — backend (Cloud Run Job
+`wishlist_notify.py` ที่อ่านค่าพวกนี้ไปตัดสินใจส่งอีเมลจริง) ส่งแยกเป็นชุด
+ไฟล์ backend คนละชุด (ดู `CHANGELOG_2026.08.21-1.md` ฝั่ง `tpis-backend`)
+
+---
+
 ## 2026.08.21-1
  
 ### Fixed — SignUpPage / AccountPage: error message โชว์ `{}` แทนข้อความที่อ่านได้
@@ -49,7 +94,7 @@
 - `[infra]` ยังไม่ได้ยืนยัน root cause 100% เพราะไม่มีสิทธิ์เข้า Supabase
   Auth Logs โดยตรง — แนะนำเช็ค **Authentication → Logs** ที่ timestamp ที่
   สมัครแล้ว fail เพื่อดูข้อความ error จริงจาก Auth server ก่อนสรุปแน่นอน
-  
+
 ### Context
  
 พบระหว่างทดสอบ flow "สมัครสมาชิก → เช็คอีเมลยืนยัน" ของฟีเจอร์ Public
