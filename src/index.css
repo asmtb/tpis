@@ -63,6 +63,8 @@
   --amber:          #f19d6a;
   --amber-lt:       #FFFBEB;
 
+  --teal:           #0891B2;
+
   /* ── Layout ── */
   --nav-h: 56px;
 
@@ -723,6 +725,73 @@ input, select, textarea { font-family: inherit; }
 .bid-status.s0                            { background: var(--orange-lt);  color: var(--orange-h); }
 .bid-status.s1                            { background: var(--red-lt);     color: #B91C1C; }
 .bid-status.s3, .bid-status.s13, .bid-status.s25 { background: var(--surface-alt); color: var(--text-3); }
+/* นัดที่ code='0' แต่วันผ่านไปแล้ว (LED ไม่อัปเดต code) — แสดง "-" แทน
+   "รอประมูล" (แก้ไปแล้วใน 2026.08.21-3) แต่ลืมเปลี่ยนสีตามให้เป็นสีเทา
+   เหมือนนัดปิดอื่นๆ ยังใช้ s0 (ส้ม) ค้างอยู่ — เพิ่ม class เฉพาะแก้ตรงนี้ */
+.bid-status.s-elapsed { background: var(--surface-alt); color: var(--text-3); }
+
+/* กระพริบช้าๆ สำหรับนัดที่ "รอจริง" (ยังไม่ถึงวันหรือเป็นวันนี้) — ใช้ร่วมกับ
+   แท่งกราฟราคาปัจจุบันด้วย (PriceTierChart) ให้ animation ตรงกันทั้งเว็บ
+   เคารพ prefers-reduced-motion เพื่อ accessibility */
+@keyframes gentle-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+.blink-slow { animation: gentle-blink 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .blink-slow { animation: none; }
+}
+
+/* ปุ่ม แผนที่ / นำทาง / Street View — เหนือ Leaflet map */
+.detail-map-actions {
+  display: flex; gap: 8px; padding: 12px 16px 0;
+  flex-wrap: wrap;
+}
+.detail-map-action-btn {
+  flex: 1; min-width: 100px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 10px; border-radius: var(--r-sm);
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text-2); font-size: 0.82rem; font-weight: 600;
+  text-decoration: none; cursor: pointer;
+  transition: border-color 0.14s, color 0.14s, background 0.14s;
+}
+.detail-map-action-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-lt); }
+
+/* Info popover — ไอคอน ⓘ เปิดคำอธิบายละเอียด (คลิก/แตะ toggle + hover บน PC,
+   click-outside ปิด — pattern เดียวกับ .navbar-dropdown ใน Navbar.jsx) */
+.info-popover { position: relative; display: inline-flex; }
+.info-popover-btn {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-alt); color: var(--text-3);
+  border: none; cursor: pointer; font-size: 0.7rem; font-weight: 700;
+  transition: background 0.14s, color 0.14s;
+}
+.info-popover-btn:hover, .info-popover-btn:focus-visible { background: var(--accent-lt); color: var(--accent); }
+.info-popover-panel {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 1100;
+  width: 300px; max-width: 84vw;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.16);
+  padding: 14px 16px; font-size: 0.8rem; line-height: 1.65; color: var(--text-2);
+}
+.info-popover-panel strong { color: var(--text); }
+.info-popover-panel ul { margin: 6px 0 10px; padding-left: 18px; }
+.info-popover-panel li { margin-bottom: 3px; }
+
+/* Price tier bar chart */
+.price-tier-chart-wrap { margin-top: 14px; }
+.price-tier-chart-hd {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 8px;
+}
+.price-tier-bar-label {
+  font-size: 0.72rem; font-weight: 700; fill: var(--text);
+}
+.price-tier-round-label {
+  font-size: 0.72rem; fill: var(--text-2);
+}
 
 /* Price analysis */
 .price-analysis       { background: var(--accent-lt); border: 1.5px solid #C2D4E4; border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
@@ -962,6 +1031,7 @@ input, select, textarea { font-family: inherit; }
   --green-dark:    #34D399;
   --red-lt:        #3B0C0C;
   --amber-lt:      #281f00;
+  --teal:          #22D3EE;
 
   --sh-card: 0 2px 12px rgba(0,0,0,0.42);
   --sh:      0 4px 16px rgba(0,0,0,0.45);

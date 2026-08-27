@@ -1,5 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
+import {
+  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, LabelList,
+} from 'recharts'
 import { supabase } from '../lib/supabase.js'
 import LeafletMap from '../components/LeafletMap.jsx'
 import { useAuth } from '../lib/AuthContext.jsx'
@@ -9,6 +12,157 @@ import {
   typeClass, typeLabel, statusInfo, issaleInfo,
   calcDiscount, discountClass,
 } from '../lib/utils.js'
+
+/* ── เกณฑ์การลดราคาต่อนัด ──
+   นัด 1: 100% ของราคาเริ่มประมูล (startPrice)
+   นัดถัดไปจะ "ลด tier ลง 1 ขั้น" (สูงสุด 3 ขั้น = 70%) ก็ต่อเมื่อนัดก่อนหน้า
+   มี issale_code === '3' (งดขายไม่มีผู้สู้ราคา) เท่านั้น — งดขายด้วยเหตุผล
+   อื่น (คู่ความขอ/เจ้าพนักงานสั่ง/ศาลสั่ง ฯลฯ) ไม่กระตุ้นการลดราคา คง tier เดิม
+   ยืนยัน algorithm นี้กับตัวอย่างจริงที่ ART ให้มาแล้ว (นัด1=100% code3,
+   นัด2=90% code อื่น, นัด3=90% code อื่น, นัด4=90% code3, นัด5=80%) */
+const TIER_MULTIPLIERS = [1, 0.9, 0.8, 0.7]
+const TIER_COLORS      = ['var(--accent)', 'var(--teal)', 'var(--amber)', 'var(--green)']
+
+/**
+ * คำนวณ tier ราคาของแต่ละนัด จนถึงนัด "ที่ยังไม่มีผลสรุป" (ล่าสุด) แล้วหยุด
+ * เพราะนัดที่ไกลกว่านั้นยังไม่แน่นอน (ขึ้นกับผลนัดที่ยังไม่เกิด)
+ * คืน [{ round_no, bid_date, tier, price, isUnresolved }]
+ */
+function computeRoundTiers(rounds, startPrice) {
+  if (!startPrice || rounds.length === 0) return []
+  let tier = 0
+  const out = []
+  for (const r of rounds) {
+    const isUnresolved = r.issale_code === '0'   // ยังไม่มีผล (รอประมูล/ค้างจาก LED)
+    out.push({
+      round_no: r.round_no,
+      bid_date: r.bid_date,
+      tier,
+      price: Math.round(startPrice * TIER_MULTIPLIERS[tier]),
+      isUnresolved,
+    })
+    if (isUnresolved) break   // หยุดตรงนัดที่ยังไม่รู้ผล ไม่คำนวณนัดถัดไปต่อ
+    if (r.issale_code === '3' && tier < 3) tier += 1
+  }
+  return out
+}
+
+/* ── Info popover — ไอคอน ⓘ อธิบายเกณฑ์ลดราคาแบบละเอียด
+   PC: hover เปิดได้เลย / มือถือ: แตะ toggle (คลิกได้ทั้งคู่)
+   click-outside ปิด — pattern เดียวกับ .navbar-dropdown ใน Navbar.jsx ── */
+function PriceRuleInfoPopover() {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
+  return (
+    <span className="info-popover" ref={ref}>
+      <button
+        type="button"
+        className="info-popover-btn"
+        onClick={() => setOpen(o => !o)}
+        onMouseEnter={() => setOpen(true)}
+        aria-label="อธิบายเกณฑ์การลดราคาแต่ละนัด"
+      >
+        i
+      </button>
+      {open && (
+        <div className="info-popover-panel" onMouseLeave={() => setOpen(false)}>
+          <strong>เกณฑ์การลดราคาแต่ละนัด</strong>
+          <ul>
+            <li>นัดที่ 1: เริ่มต้นที่ 100% ของราคาประเมิน</li>
+            <li>นัดที่ 2: ลดเหลือ 90% ของราคาประเมิน (ลดลง 10%)</li>
+            <li>นัดที่ 3: ลดเหลือ 80% ของราคาประเมิน (ลดลง 20%)</li>
+            <li>นัดที่ 4 เป็นต้นไป: ลดเหลือ 70% ของราคาประเมิน (ลดลงสูงสุด 30%)
+              ซึ่งเป็นราคาต่ำสุดที่จะไม่มีการปรับลดราคาลงอีก</li>
+          </ul>
+          <strong>ข้อควรระวังเรื่องสถานะ "งดขาย"</strong>
+          <p style={{ margin: '6px 0 0' }}>
+            หากในนัดก่อนหน้ามีสถานะ "งดขาย" เนื่องจากคู่ความขอให้งด หรือ
+            เจ้าพนักงานมีเหตุต้องงดขาย โดยที่ยังไม่มีการเปิดประมูลขายจริง
+            (ไม่ใช่เพราะไม่มีคนสู้ราคา) การนัดขายครั้งต่อไปจะยังนับราคาเริ่มต้น
+            เท่ากับนัดก่อนหน้า ไม่ถือว่าเป็นการลดราคา
+          </p>
+        </div>
+      )}
+    </span>
+  )
+}
+
+/* ── Bar chart ราคาเริ่มประมูลต่อนัด ── */
+function PriceTierChart({ rounds, startPrice, todayStr }) {
+  const tiers = computeRoundTiers(rounds, startPrice)
+  if (tiers.length === 0) return null
+
+  const data = tiers.map(t => ({
+    name:  `นัดที่ ${t.round_no}`,
+    sub:   t.tier === 0 ? '' : `(ลดราคา ${t.tier * 10}%)`,
+    price: t.price,
+    dateLabel: fmtDate(t.bid_date),
+    tier: t.tier,
+    // แท่งปัจจุบัน/นัดถัดไปที่รอจริง (ยังไม่รู้ผล + วันยังไม่ผ่าน) ให้กระพริบ
+    // เหมือนกับ .bid-round.upcoming ในกล่อง "นัดประมูล"
+    isBlinking: t.isUnresolved && t.bid_date >= todayStr,
+  }))
+
+  return (
+    <div className="price-tier-chart-wrap">
+      <div className="price-tier-chart-hd">
+        <span>ราคาเริ่มต้นของแต่ละนัด</span>
+        <PriceRuleInfoPopover />
+      </div>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={data} margin={{ top: 24, right: 8, left: 8, bottom: 8 }}>
+          <XAxis
+            dataKey="name"
+            tick={({ x, y, payload, index }) => (
+              <g transform={`translate(${x},${y})`}>
+                <text dy={14} textAnchor="middle" className="price-tier-round-label">
+                  {payload.value}
+                </text>
+                {data[index].sub && (
+                  <text dy={28} textAnchor="middle" className="price-tier-round-label">
+                    {data[index].sub}
+                  </text>
+                )}
+                <text dy={42} textAnchor="middle" className="price-tier-round-label" opacity={0.7}>
+                  {data[index].dateLabel}
+                </text>
+              </g>
+            )}
+            height={56}
+            axisLine={{ stroke: 'var(--border)' }}
+            tickLine={false}
+          />
+          <YAxis hide />
+          <Bar dataKey="price" radius={[6, 6, 0, 0]} maxBarSize={64}>
+            <LabelList
+              dataKey="price"
+              position="top"
+              className="price-tier-bar-label"
+              formatter={(v) => fmtPriceFull(v)}
+            />
+            {data.map((d, i) => (
+              <Cell
+                key={i}
+                fill={TIER_COLORS[d.tier]}
+                className={d.isBlinking ? 'blink-slow' : ''}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
 
 /* ── Icons ── */
 const BACK = (
@@ -391,6 +545,29 @@ export default function DetailPage() {
                   )}
                 </div>
                 <div className="panel-body" style={{ padding: 0 }}>
+                  <div className="detail-map-actions">
+                    <a
+                      className="detail-map-action-btn"
+                      href={`https://www.google.com/maps?q=${mapPt.latitude},${mapPt.longitude}`}
+                      target="_blank" rel="noopener noreferrer"
+                    >
+                      🗺️ แผนที่
+                    </a>
+                    <a
+                      className="detail-map-action-btn"
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${mapPt.latitude},${mapPt.longitude}`}
+                      target="_blank" rel="noopener noreferrer"
+                    >
+                      🧭 นำทาง
+                    </a>
+                    <a
+                      className="detail-map-action-btn"
+                      href={`https://www.google.com/maps?layer=c&cbll=${mapPt.latitude},${mapPt.longitude}`}
+                      target="_blank" rel="noopener noreferrer"
+                    >
+                      👁️ Street View
+                    </a>
+                  </div>
                   <div className="detail-map">
                     <LeafletMap
                       properties={[{ ...asset, latitude: mapPt.latitude, longitude: mapPt.longitude }]}
@@ -426,6 +603,7 @@ export default function DetailPage() {
                       {fmtPriceFull(startPrice)}
                     </span>
                   </div>
+                  <PriceTierChart rounds={rounds} startPrice={startPrice} todayStr={todayStr} />
                 </div>
 
                 {/* ── กรอบ 2: ราคาประเมินทั้ง 4 แหล่ง (เรียง assetprice2→5) ── */}
@@ -522,7 +700,7 @@ export default function DetailPage() {
                         let label, cls
                         if (isPending0 && isPastDue) {
                           label = '-'
-                          cls   = 's0'
+                          cls   = 's-elapsed'   // เทา — แก้บั๊กที่เคยใช้ s0 (ส้ม) ค้างอยู่
                         } else {
                           ({ label, cls } = issaleInfo(r.issale_code))
                         }
@@ -530,7 +708,7 @@ export default function DetailPage() {
                         const isUpcoming = isPending0 && !isPastDue
                         return (
                           <div key={r.round_no}
-                            className={`bid-round${isUpcoming ? ' upcoming' : ''}`}>
+                            className={`bid-round${isUpcoming ? ' upcoming blink-slow' : ''}`}>
                             <div className="bid-round-num">{r.round_no}</div>
                             <div className="bid-date">{fmtDate(r.bid_date)}</div>
                             {/* ลบ asset_price ออก — ราคาอยู่ในช่อง "วิเคราะห์ราคา" แล้ว */}
