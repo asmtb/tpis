@@ -103,6 +103,14 @@ export default function DetailPage() {
     toggle(assetIdNum)
   }
 
+  // วันที่วันนี้แบบ string "YYYY-MM-DD" (local) — ใช้เทียบกับ bid_date ตรงๆ
+  // แบบ string แทนที่จะสร้าง Date object มาเทียบกัน เพราะ bid_date จาก Supabase
+  // เป็น string รูปแบบ "YYYY-MM-DD" ซึ่ง JS's `new Date(str)` ตีความเป็น UTC
+  // midnight เสมอ ถ้าเอามาเทียบกับ Date ท้องถิ่นตรงๆ อาจเพี้ยนวันได้ตอนใกล้
+  // เที่ยงคืน — เทียบ string ตามรูปแบบเดียวกันปลอดภัยกว่าและง่ายกว่า
+  const now = new Date()
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
   useEffect(() => {
     if (!id) return
     setLoading(true)
@@ -500,8 +508,26 @@ export default function DetailPage() {
                   : (
                     <div className="bid-rounds">
                       {rounds.map(r => {
-                        const { label, cls } = issaleInfo(r.issale_code)
-                        const isUpcoming = r.issale_code === '0'
+                        // นัดที่ code='0' ต้องเช็ค bid_date ประกอบด้วย ไม่ใช่ดู
+                        // code อย่างเดียว — เพราะ LED บางครั้ง "ลืม" อัปเดต code
+                        // หลังวันนัดผ่านไปแล้ว (เจอเคสจริง: นัดที่ 2 วันผ่านไปแล้ว
+                        // แต่ code ยังเป็น 0 ค้างอยู่) ถ้าปล่อยไว้จะขึ้น "รอประมูล"
+                        // ทั้งที่วันผ่านไปแล้ว ทำให้เข้าใจผิดว่ายังไม่ถึงวันนัด
+                        // เว็บ LED เองก็แสดง "-" สำหรับกรณีนี้เหมือนกัน (ไม่ใช่
+                        // "รอประมูล") จึงทำตามเพื่อให้สอดคล้องกับต้นทาง
+                        const hasRealDate = !!r.bid_date
+                        const isPastDue   = hasRealDate && r.bid_date < todayStr
+                        const isPending0  = r.issale_code === '0'
+
+                        let label, cls
+                        if (isPending0 && isPastDue) {
+                          label = '-'
+                          cls   = 's0'
+                        } else {
+                          ({ label, cls } = issaleInfo(r.issale_code))
+                        }
+
+                        const isUpcoming = isPending0 && !isPastDue
                         return (
                           <div key={r.round_no}
                             className={`bid-round${isUpcoming ? ' upcoming' : ''}`}>
