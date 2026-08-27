@@ -7,6 +7,73 @@
 
 ---
 
+## 2026.08.27-1
+
+### Added — modal "รายการใหม่" (AdminCrawlerPage): คอลัมน์สถานะพิกัด
+
+- `[AdminCrawlerPage.jsx]` `fetchParcelsForAssets()` ดึง `verify_status` ของ
+  parcel เพิ่ม (เดิมดึงแค่ `parcelno`/`latitude`/`longitude`)
+- `[AdminCrawlerPage.jsx]` เพิ่มคอลัมน์ "สถานะ" ในตาราง modal — asset ที่มีโฉนด
+  เดียวโชว์ badge สถานะจริงในแถวหลักได้เลย, asset ที่มีหลายโฉนดแถวหลักโชว์ "—"
+  (มีได้หลายค่า ใส่แถวเดียวไม่ได้ เหมือน pattern เดียวกับ lat/long เดิม) ส่วน
+  sub-row ที่กดขยายดูพิกัดรายแปลงจะโชว์สถานะแยกรายแปลงให้ครบ
+
+### Added — ParcelStatusBadge.jsx: component ใหม่ใช้ร่วมกัน
+
+- `[ParcelStatusBadge.jsx]` (ไฟล์ใหม่, `src/components/`) — ดึง badge สถานะ
+  parcel ที่เคย copy โค้ดซ้ำกันอยู่ 2 ที่ (`AdminParcelsPage.jsx` และตอนนี้
+  `AdminCrawlerPage.jsx` ที่เพิ่งเพิ่มคอลัมน์สถานะ) มารวมเป็น component เดียว
+  ที่เดียวที่ต้องแก้ถ้าจะเพิ่ม/เปลี่ยน label หรือสีของสถานะใหม่ในอนาคต
+- `[AdminParcelsPage.jsx]` เปลี่ยนมาใช้ `<ParcelStatusBadge status={row.verify_status} />`
+  แทนโค้ด `<span className="parcel-status ...">` ที่เคย inline ไว้เอง — ลบ
+  `VERIFY_STATUS_LABEL` ที่เคยประกาศซ้ำในไฟล์นี้ออกด้วย (ย้ายไปอยู่ใน
+  `ParcelStatusBadge.jsx` แทน)
+
+### Added — AdminCrawlerPage: Crawler Runs มี filter + pagination 100 รายการ/หน้า
+
+- `[AdminCrawlerPage.jsx]` แยก query `crawler_runs` ออกจาก `Promise.all` เดิม
+  (ที่โหลดพร้อม session/สถิติทรัพย์ตอนเข้าหน้าครั้งแรก) มาเป็นฟังก์ชัน
+  `loadRuns()` ของตัวเอง — เรียกใหม่อัตโนมัติทุกครั้งที่ filter หรือเลขหน้าเปลี่ยน
+  ผ่าน `useEffect([loadRuns])`
+- `[AdminCrawlerPage.jsx]` filter ที่เพิ่ม (ตามที่เลือกไว้ตอนคุยแผน):
+  - **Mode** — `upload` (LED) / `landsmaps` (ตรงกับค่าจริงที่ backend เขียนลง
+    `crawler_runs.run_mode` — `led_uploader.py` ใช้ `"upload"`,
+    `landsmaps_supabase.py` ใช้ `"landsmaps"` ไม่มีค่า `"led"` ตรงๆ)
+  - **สถานะ** — `completed` / `partial` / `failed` / `running` (ตรงกับ CHECK
+    constraint ของคอลัมน์ `status` ใน schema baseline)
+  - **ช่วงวันที่** — กรองจาก `started_at`
+  - เปลี่ยน filter ตัวไหนก็ตาม กลับไปหน้า 1 เสมอ (`applyRunsFilter()`)
+- `[AdminCrawlerPage.jsx]` pagination 100 รายการ/หน้า (`RUNS_PAGE_SIZE = 100`)
+  ใช้ `.range()` + `count: 'exact'` แบบเดียวกับที่ `AdminParcelsPage.jsx` ทำไว้
+  ก่อนหน้า — ปุ่มก่อนหน้า/ถัดไป + เลขหน้า/จำนวนหน้ารวมอยู่ที่มุมขวาบนของ section
+- `[AdminCrawlerPage.jsx]` หัวข้อ section เปลี่ยนจากนับ `runs.length` (นับแค่ที่
+  โหลดมาในหน้าปัจจุบัน ผิดความหมาย) เป็น `runsTotal` จาก `count: 'exact'` ของ
+  Supabase (จำนวนจริงทั้งหมดที่ตรง filter ไม่ใช่แค่หน้าที่เห็น)
+- `[AdminCrawlerPage.jsx]` เพิ่ม loading state (`runsLoading`) ระหว่างโหลด/
+  เปลี่ยนหน้า/เปลี่ยน filter ของตาราง Crawler Runs โดยเฉพาะ (แยกจาก loading
+  state หลักของทั้งหน้าที่คุมแค่ session/สถิติทรัพย์)
+- `[AdminCrawlerPage.jsx]` re-use `.parcels-filter-grid` / `.pf-field` CSS class
+  เดิมจาก `AdminParcelsPage.jsx` สำหรับ filter bar ใหม่นี้ — ไม่ต้องเพิ่ม CSS
+  ใหม่เลย หน้าตา filter เหมือนกันทั้ง 2 หน้า
+
+### Context
+
+งานรอบนี้ตอบ 3 ข้อที่ขอมาพร้อมกัน: (1) คอลัมน์สถานะใน modal รายการใหม่ (2)
+pagination + filter ของ Crawler Runs (3) คำถามว่าจะเพิ่มคอลัมน์ใหม่ในอนาคตต้อง
+แก้ไฟล์ไหน — คำตอบคือ:
+  - เพิ่ม/แก้คอลัมน์ใน modal "รายการใหม่" → แก้ที่ `AdminCrawlerPage.jsx`
+    (ส่วน state `newAssets`/`NEW_ASSETS_FIELDS` และตารางใน modal)
+  - เพิ่ม/แก้คอลัมน์ในหน้า "จัดการโฉนด" → แก้ที่ `AdminParcelsPage.jsx`
+    (ส่วน `NEW_ASSETS_FIELDS`/query `parcels`/`fetchRepresentativeAssets`
+    และตารางหลักของหน้า)
+  - ถ้าคอลัมน์ใหม่เป็น field จาก `assets` ที่ยังไม่เคย select มา ต้องเพิ่มชื่อ
+    field เข้าไปใน select string ของ query ที่เกี่ยวข้องก่อน (เช่น
+    `NEW_ASSETS_FIELDS` ในทั้งสองไฟล์ หรือ query ใน `fetchRepresentativeAssets`/
+    `fetchParcelsForAssets`) ไม่งั้นข้อมูลจะเป็น `undefined` แม้จะเพิ่ม `<td>`
+    ในตารางแล้วก็ตาม
+
+---
+
 ## 2026.08.21-3
 
 ### Fixed — ป้ายสถานะรายนัดขึ้น "รอประมูล" ทั้งที่วันนัดผ่านไปแล้ว

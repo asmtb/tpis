@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { fmtNum, fmtDateTime } from '../lib/utils.js'
 import { PROVINCES } from '../lib/constants.js'
+import ParcelStatusBadge from '../components/ParcelStatusBadge.jsx'
 
 const PAGE_SIZE = 50
 
@@ -24,11 +25,6 @@ const VERIFY_STATUS_OPTIONS = [
   { value: 'not_found',     label: 'not_found' },
   { value: 'error',         label: 'error' },
 ]
-
-const VERIFY_STATUS_LABEL = {
-  matched: 'matched', partial_match: 'partial_match', not_verified: 'not_verified',
-  manual: 'manual', mismatch: 'mismatch', not_found: 'not_found', error: 'error',
-}
 
 const fmtLatLng = (v) => (v == null ? '—' : Number(v).toFixed(6))
 const fmtBahtExact = (n) => (n == null ? '—' : `${Number(n).toLocaleString('en-US')} ฿`)
@@ -437,11 +433,7 @@ export default function AdminParcelsPage() {
                       </td>
                       <td style={{ fontSize: '0.8rem' }}>{asset?.asset_type_desc || '—'}</td>
                       <td style={{ fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>{fmtBahtExact(asset?.assetprice3)}</td>
-                      <td>
-                        <span className={`parcel-status parcel-status-${row.verify_status}`}>
-                          {VERIFY_STATUS_LABEL[row.verify_status] || row.verify_status || '—'}
-                        </span>
-                      </td>
+                      <td><ParcelStatusBadge status={row.verify_status} /></td>
 
                       {isEditing ? (
                         <>

@@ -1,6 +1,7 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { fmtNum, fmtDateTime, fmtRelative } from '../lib/utils.js'
+import ParcelStatusBadge from '../components/ParcelStatusBadge.jsx'
 
 /** run เป็นรอบ LED หรือไม่ (มีแค่รอบ LED เท่านั้นที่มีแนวคิด "รายการใหม่" ของ assets) */
 const isLedRun = (r) => r.run_mode === 'led' || r.run_mode === 'upload' || !r.run_mode
@@ -33,19 +34,65 @@ export default function AdminCrawlerPage() {
   // asset ไหนที่กด "เลขโฉนด" ขยายดู sub-row พิกัดรายแปลงอยู่บ้าง (รองรับขยายได้หลายแถวพร้อมกัน)
   const [expandedDeedRows, setExpandedDeedRows] = useState(() => new Set())
 
+  // ----- Crawler Runs: filter + pagination -----
+  const RUNS_PAGE_SIZE = 100
+  const [runsModeFilter, setRunsModeFilter]     = useState('')   // '' | 'upload' | 'landsmaps'
+  const [runsStatusFilter, setRunsStatusFilter] = useState('')   // '' | completed | partial | failed | running
+  const [runsDateFrom, setRunsDateFrom]         = useState('')
+  const [runsDateTo, setRunsDateTo]             = useState('')
+  const [runsPage, setRunsPage]                 = useState(1)
+  const [runsTotal, setRunsTotal]               = useState(0)
+  const [runsLoading, setRunsLoading]           = useState(true)
+
+  const loadRuns = useCallback(async () => {
+    setRunsLoading(true)
+    try {
+      let q = supabase.from('crawler_runs')
+        .select(
+          'id, started_at, finished_at, status, run_mode, total_records_fetched, total_records_new, ' +
+          'total_provinces_success, total_provinces_failed, duration_sec, code_version, error_message, triggered_by',
+          { count: 'exact' }
+        )
+      if (runsModeFilter) q = q.eq('run_mode', runsModeFilter)
+      if (runsStatusFilter) q = q.eq('status', runsStatusFilter)
+      if (runsDateFrom) q = q.gte('started_at', `${runsDateFrom}T00:00:00+07:00`)
+      if (runsDateTo) q = q.lte('started_at', `${runsDateTo}T23:59:59+07:00`)
+
+      const from = (runsPage - 1) * RUNS_PAGE_SIZE
+      const { data, error, count } = await q
+        .order('started_at', { ascending: false })
+        .range(from, from + RUNS_PAGE_SIZE - 1)
+
+      if (error) throw error
+      setRuns(data || [])
+      setRunsTotal(count || 0)
+    } catch (e) {
+      console.error('โหลด crawler_runs ไม่สำเร็จ:', e)
+      setRuns([])
+      setRunsTotal(0)
+    } finally {
+      setRunsLoading(false)
+    }
+  }, [runsModeFilter, runsStatusFilter, runsDateFrom, runsDateTo, runsPage])
+
+  useEffect(() => { loadRuns() }, [loadRuns])
+
+  // เปลี่ยน filter ใดๆ ของ Crawler Runs → กลับไปหน้า 1 เสมอ
+  const applyRunsFilter = (fn) => {
+    fn()
+    setRunsPage(1)
+  }
+
+  const runsTotalPages = Math.max(1, Math.ceil(runsTotal / RUNS_PAGE_SIZE))
+
   useEffect(() => {
     async function load() {
       try {
         const [
-          { data: runsData },
           { data: sessionData },
           { count: totalAssets },
           { count: withCoords },
         ] = await Promise.all([
-          supabase.from('crawler_runs')
-            .select('id, started_at, finished_at, status, run_mode, total_records_fetched, total_records_new, total_provinces_success, total_provinces_failed, duration_sec, code_version, error_message, triggered_by')
-            .order('started_at', { ascending: false })
-            .limit(1000),
           supabase.from('landsmaps_sessions')
             .select('uploaded_at, note, is_active')
             .eq('is_active', true)
@@ -54,7 +101,6 @@ export default function AdminCrawlerPage() {
           supabase.from('asset_parcels').select('*', { count: 'exact', head: true }),
         ])
 
-        setRuns(runsData || [])
         setSession(sessionData)
         setPending({
           total: totalAssets || 0,
@@ -125,16 +171,17 @@ export default function AdminCrawlerPage() {
       const chunk = assetIds.slice(i, i + chunkSize)
       const { data, error } = await supabase
         .from('asset_parcels')
-        .select('asset_id, parcels(parcelno, latitude, longitude)')
+        .select('asset_id, parcels(parcelno, latitude, longitude, verify_status)')
         .in('asset_id', chunk)
       if (error) throw error
       for (const row of data || []) {
         if (!row.parcels) continue
         if (!map[row.asset_id]) map[row.asset_id] = []
         map[row.asset_id].push({
-          parcelno:  row.parcels.parcelno,
-          latitude:  row.parcels.latitude,
-          longitude: row.parcels.longitude,
+          parcelno:      row.parcels.parcelno,
+          latitude:      row.parcels.latitude,
+          longitude:     row.parcels.longitude,
+          verify_status: row.parcels.verify_status,
         })
       }
     }
@@ -447,13 +494,54 @@ export default function AdminCrawlerPage() {
       <div className="admin-section">
         <div className="admin-section-hd">
           <span className="admin-section-title">
-            Crawler Runs {runs.length > 0 ? `(ทั้งหมด ${fmtNum(runs.length)} รอบ)` : ''}
+            Crawler Runs {runsTotal > 0 ? `(ทั้งหมด ${fmtNum(runsTotal)} รอบ)` : ''}
           </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.8rem', color: 'var(--text-3)' }}>
+            <button className="abtn secondary" disabled={runsPage <= 1 || runsLoading} onClick={() => setRunsPage(p => p - 1)}>‹ ก่อนหน้า</button>
+            <span>หน้า {runsPage} / {runsTotalPages}</span>
+            <button className="abtn secondary" disabled={runsPage >= runsTotalPages || runsLoading} onClick={() => setRunsPage(p => p + 1)}>ถัดไป ›</button>
+          </div>
         </div>
+
+        <div className="admin-section-body" style={{ paddingBottom: 0 }}>
+          <div className="parcels-filter-grid">
+            <div className="pf-field">
+              <label>Mode</label>
+              <select value={runsModeFilter} onChange={e => applyRunsFilter(() => setRunsModeFilter(e.target.value))}>
+                <option value="">ทั้งหมด</option>
+                <option value="upload">upload (LED)</option>
+                <option value="landsmaps">landsmaps</option>
+              </select>
+            </div>
+            <div className="pf-field">
+              <label>สถานะ</label>
+              <select value={runsStatusFilter} onChange={e => applyRunsFilter(() => setRunsStatusFilter(e.target.value))}>
+                <option value="">ทั้งหมด</option>
+                <option value="completed">completed</option>
+                <option value="partial">partial</option>
+                <option value="failed">failed</option>
+                <option value="running">running</option>
+              </select>
+            </div>
+            <div className="pf-field">
+              <label>ตั้งแต่วันที่</label>
+              <input type="date" value={runsDateFrom} onChange={e => applyRunsFilter(() => setRunsDateFrom(e.target.value))} />
+            </div>
+            <div className="pf-field">
+              <label>ถึงวันที่</label>
+              <input type="date" value={runsDateTo} onChange={e => applyRunsFilter(() => setRunsDateTo(e.target.value))} />
+            </div>
+          </div>
+        </div>
+
         <div style={{ overflowX: 'auto' }}>
-          {runs.length === 0 ? (
+          {runsLoading ? (
+            <div className="state-box" style={{ padding: '30px 0' }}>
+              <div className="dots"><span/><span/><span/></div>
+            </div>
+          ) : runs.length === 0 ? (
             <div style={{ padding: '20px 18px', color: 'var(--text-3)', fontSize: '0.875rem' }}>
-              ไม่มีประวัติการรัน (ต้องการสิทธิ์ analyst/admin ในการอ่าน crawler_runs)
+              ไม่มีประวัติการรันที่ตรงกับ filter (หรือต้องการสิทธิ์ analyst/admin ในการอ่าน crawler_runs)
             </div>
           ) : (
             <table className="runs-table">
@@ -563,6 +651,7 @@ export default function AdminCrawlerPage() {
                         <th>เลขโฉนด</th>
                         <th>Lat</th>
                         <th>Long</th>
+                        <th>สถานะ</th>
                         <th>ประเภท</th>
                         <th>ราคาประเมิน</th>
                         <th>เพิ่มเมื่อ</th>
@@ -613,6 +702,9 @@ export default function AdminCrawlerPage() {
                               <td style={{ fontFamily: 'var(--mono)', fontSize: '0.76rem', whiteSpace: 'nowrap' }}>
                                 {isMulti ? '—' : fmtLatLng(singleParcel?.longitude)}
                               </td>
+                              <td>
+                                {isMulti ? <span style={{ color: 'var(--text-3)' }}>—</span> : <ParcelStatusBadge status={singleParcel?.verify_status} />}
+                              </td>
                               <td style={{ fontSize: '0.8rem' }}>{a.asset_type_desc || '—'}</td>
                               <td style={{ fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>{fmtBahtExact(a.assetprice3)}</td>
                               <td style={{ fontFamily: 'var(--mono)', fontSize: '0.72rem', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
@@ -631,6 +723,7 @@ export default function AdminCrawlerPage() {
                                   <td style={{ fontFamily: 'var(--mono)', fontSize: '0.76rem', whiteSpace: 'nowrap' }}>
                                     {fmtLatLng(p?.longitude)}
                                   </td>
+                                  <td><ParcelStatusBadge status={p?.verify_status} /></td>
                                   <td colSpan={3} />
                                 </tr>
                               )
