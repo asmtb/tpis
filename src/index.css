@@ -64,6 +64,7 @@
   --amber-lt:       #FFFBEB;
 
   --teal:           #0891B2;
+  --chart-grey:     #94A3B8;
 
   /* ── Layout ── */
   --nav-h: 56px;
@@ -759,21 +760,24 @@ input, select, textarea { font-family: inherit; }
 .detail-map-action-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-lt); }
 
 /* Info popover — ไอคอน ⓘ เปิดคำอธิบายละเอียด (คลิก/แตะ toggle + hover บน PC,
-   click-outside ปิด — pattern เดียวกับ .navbar-dropdown ใน Navbar.jsx) */
-.info-popover { position: relative; display: inline-flex; }
+   click-outside ปิด) — เดิม popover ลอยแบบ absolute ในไฟล์เดิมโดนตัดขอบ
+   เพราะ .panel (การ์ดครอบ) มี overflow:hidden — ตอนนี้ render ผ่าน
+   React Portal ไปที่ document.body แล้วใช้ position:fixed คำนวณตำแหน่งจาก
+   getBoundingClientRect() ของปุ่มแทน ไม่โดนตัดขอบอีกต่อไป */
 .info-popover-btn {
-  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   background: var(--surface-alt); color: var(--text-3);
-  border: none; cursor: pointer; font-size: 0.7rem; font-weight: 700;
-  transition: background 0.14s, color 0.14s;
+  border: 1.5px solid var(--border); cursor: pointer;
+  transition: background 0.14s, color 0.14s, border-color 0.14s;
 }
-.info-popover-btn:hover, .info-popover-btn:focus-visible { background: var(--accent-lt); color: var(--accent); }
+.info-popover-btn:hover, .info-popover-btn:focus-visible {
+  background: var(--accent-lt); color: var(--accent); border-color: var(--accent);
+}
 .info-popover-panel {
-  position: absolute; top: calc(100% + 8px); left: 0; z-index: 1100;
-  width: 300px; max-width: 84vw;
+  z-index: 1100; width: 300px; max-width: calc(100vw - 32px);
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.16);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.20);
   padding: 14px 16px; font-size: 0.8rem; line-height: 1.65; color: var(--text-2);
 }
 .info-popover-panel strong { color: var(--text); }
@@ -809,7 +813,8 @@ input, select, textarea { font-family: inherit; }
 .price-divider        { border: none; border-top: 1px solid #C2D4E4; }
 .price-discount-bar   { height: 6px; background: #C2D4E4; border-radius: 3px; overflow: hidden; }
 .price-discount-fill  { height: 100%; background: var(--green); border-radius: 3px; transition: width 0.5s ease; }
-.detail-map           { height: 280px; border-radius: var(--r-sm); overflow: hidden; }
+/* padding รอบขอบ กันไม่ให้ map ชนกรอบการ์ดตรงๆ (เดิมไม่มี margin/padding เลย) */
+.detail-map           { height: 280px; margin: 0 16px 16px; border-radius: var(--r-sm); overflow: hidden; }
 
 /* Lightbox */
 .lightbox-overlay { position: fixed; inset: 0; z-index: 9000; background: rgba(0,0,0,0.88); display: flex; align-items: center; justify-content: center; cursor: zoom-out; animation: lb-fade 0.18s ease; }
@@ -1032,6 +1037,7 @@ input, select, textarea { font-family: inherit; }
   --red-lt:        #3B0C0C;
   --amber-lt:      #281f00;
   --teal:          #22D3EE;
+  --chart-grey:    #64748B;
 
   --sh-card: 0 2px 12px rgba(0,0,0,0.42);
   --sh:      0 4px 16px rgba(0,0,0,0.45);

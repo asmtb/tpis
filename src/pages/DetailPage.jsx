@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, LabelList,
@@ -22,60 +23,145 @@ import {
    นัด2=90% code อื่น, นัด3=90% code อื่น, นัด4=90% code3, นัด5=80%) */
 const TIER_MULTIPLIERS = [1, 0.9, 0.8, 0.7]
 const TIER_COLORS      = ['var(--accent)', 'var(--teal)', 'var(--amber)', 'var(--green)']
+const GREY             = 'var(--chart-grey)'
 
 /**
- * คำนวณ tier ราคาของแต่ละนัด จนถึงนัด "ที่ยังไม่มีผลสรุป" (ล่าสุด) แล้วหยุด
- * เพราะนัดที่ไกลกว่านั้นยังไม่แน่นอน (ขึ้นกับผลนัดที่ยังไม่เกิด)
- * คืน [{ round_no, bid_date, tier, price, isUnresolved }]
+ * คำนวณแท่งกราฟราคาเริ่มประมูลของแต่ละนัด
+ *
+ * ถ้าปิดประมูลแล้ว (isClosed): แสดง "ทุกนัดจริง" ที่มีอยู่ (ไม่จำกัด 4 แท่ง
+ * เพราะเป็นข้อมูลจริงทั้งหมดแล้ว ไม่ใช่การคาดเดา) สีเทาหมดทุกแท่ง — สี tier
+ * ไม่มีความหมายอีกต่อไปเมื่อประมูลจบแล้ว ไม่ว่าจะขายได้หรืองดขายจนหมดนัด
+ *
+ * ถ้ายังไม่ปิด: แสดงนัดที่มีข้อมูลจริง (เกิดแล้ว/กำลังรอ) สีตาม tier จริง
+ * แล้ว "โปรเจกชัน" ต่อไปข้างหน้า (สมมติว่านัดที่ยังไม่ถึงจะงดขายไม่มีผู้สู้
+ * ราคาไปเรื่อยๆ) จนครบ 4 แท่งเสมอ — แท่งโปรเจกชันเป็นสีเทา แยกจากสี tier
+ * ของข้อมูลจริง เพื่อไม่ให้ดูเหมือนเป็นข้อมูลยืนยันแล้ว
  */
-function computeRoundTiers(rounds, startPrice) {
-  if (!startPrice || rounds.length === 0) return []
+function computeChartRounds(rounds, startPrice, isClosed) {
+  if (!startPrice) return []
+
+  const byRoundNo = new Map(rounds.map(r => [r.round_no, r]))
   let tier = 0
+  let lastRoundNo = 0
   const out = []
+
   for (const r of rounds) {
-    const isUnresolved = r.issale_code === '0'   // ยังไม่มีผล (รอประมูล/ค้างจาก LED)
+    const isUnresolved = r.issale_code === '0'
     out.push({
       round_no: r.round_no,
       bid_date: r.bid_date,
       tier,
       price: Math.round(startPrice * TIER_MULTIPLIERS[tier]),
+      isProjected: false,
       isUnresolved,
     })
-    if (isUnresolved) break   // หยุดตรงนัดที่ยังไม่รู้ผล ไม่คำนวณนัดถัดไปต่อ
+    lastRoundNo = r.round_no
+    if (isUnresolved) break   // หยุดเดินตามข้อมูลจริง ณ นัดที่ยังไม่รู้ผล
     if (r.issale_code === '3' && tier < 3) tier += 1
   }
+
+  if (isClosed) return out   // ปิดแล้ว — ไม่มีนัดไหนต้องโปรเจกชันต่อ
+
+  // ยังไม่ปิด — เติมแท่งโปรเจกชันต่อจนครบ 4 แท่งเสมอ (ใช้ bid_date จริงถ้ามี
+  // ข้อมูลอยู่แล้วสำหรับนัดนั้น เพราะ LED มักประกาศวันของทุกนัดไว้ล่วงหน้า)
+  while (out.length < 4) {
+    if (tier < 3) tier += 1
+    lastRoundNo += 1
+    const existing = byRoundNo.get(lastRoundNo)
+    out.push({
+      round_no: lastRoundNo,
+      bid_date: existing?.bid_date || null,
+      tier,
+      price: Math.round(startPrice * TIER_MULTIPLIERS[tier]),
+      isProjected: true,
+      isUnresolved: true,
+    })
+  }
+
   return out
+}
+
+/** ราคาแบบย่อสำหรับ label บนแท่งกราฟ — ไม่มี ฿ เช่น 1.8M, 750K */
+function fmtCompactPrice(v) {
+  if (v == null) return ''
+  const abs = Math.abs(v)
+  if (abs >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+  if (abs >= 1_000)     return `${Math.round(v / 1000)}K`
+  return String(v)
+}
+
+/** วันที่แบบย่อ DD/MM/YY (พ.ศ. 2 หลัก) — เฉพาะใน chart นี้จุดเดียว
+ *  ไม่กระทบ fmtDate() ที่ใช้รูปแบบเต็ม (เช่น "29 พ.ค. 2569") ทั่วทั้งหน้า */
+function fmtDateShort(str) {
+  if (!str) return ''
+  try {
+    const d = new Date(str)
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yy = String(d.getFullYear() + 543).slice(-2)
+    return `${dd}/${mm}/${yy}`
+  } catch {
+    return str
+  }
 }
 
 /* ── Info popover — ไอคอน ⓘ อธิบายเกณฑ์ลดราคาแบบละเอียด
    PC: hover เปิดได้เลย / มือถือ: แตะ toggle (คลิกได้ทั้งคู่)
-   click-outside ปิด — pattern เดียวกับ .navbar-dropdown ใน Navbar.jsx ── */
+   click-outside ปิด — render ผ่าน React Portal ไปที่ document.body แล้วใช้
+   position:fixed คำนวณจาก getBoundingClientRect() ของปุ่ม เพราะ .panel
+   (การ์ดครอบ) มี overflow:hidden ถ้าลอย position:absolute ธรรมดาจะโดนตัด
+   ขอบตามกรอบการ์ดทันที (เจอปัญหานี้จริงตอนทดสอบ) ── */
 function PriceRuleInfoPopover() {
   const [open, setOpen] = useState(false)
-  const ref = useRef(null)
+  const [pos, setPos]   = useState(null)
+  const btnRef   = useRef(null)
+  const panelRef = useRef(null)
+
+  const openPanel = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      const panelWidth = 300
+      const left = Math.min(r.left, window.innerWidth - panelWidth - 16)
+      setPos({ top: r.bottom + 8, left: Math.max(16, left) })
+    }
+    setOpen(true)
+  }
 
   useEffect(() => {
     if (!open) return
     const onClickOutside = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+      const inBtn   = btnRef.current   && btnRef.current.contains(e.target)
+      const inPanel = panelRef.current && panelRef.current.contains(e.target)
+      if (!inBtn && !inPanel) setOpen(false)
     }
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [open])
 
   return (
-    <span className="info-popover" ref={ref}>
+    <>
       <button
+        ref={btnRef}
         type="button"
         className="info-popover-btn"
-        onClick={() => setOpen(o => !o)}
-        onMouseEnter={() => setOpen(true)}
+        onClick={() => (open ? setOpen(false) : openPanel())}
+        onMouseEnter={openPanel}
         aria-label="อธิบายเกณฑ์การลดราคาแต่ละนัด"
       >
-        i
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="11"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
       </button>
-      {open && (
-        <div className="info-popover-panel" onMouseLeave={() => setOpen(false)}>
+      {open && pos && createPortal(
+        <div
+          ref={panelRef}
+          className="info-popover-panel"
+          style={{ position: 'fixed', top: pos.top, left: pos.left }}
+          onMouseLeave={() => setOpen(false)}
+        >
           <strong>เกณฑ์การลดราคาแต่ละนัด</strong>
           <ul>
             <li>นัดที่ 1: เริ่มต้นที่ 100% ของราคาประเมิน</li>
@@ -91,26 +177,28 @@ function PriceRuleInfoPopover() {
             (ไม่ใช่เพราะไม่มีคนสู้ราคา) การนัดขายครั้งต่อไปจะยังนับราคาเริ่มต้น
             เท่ากับนัดก่อนหน้า ไม่ถือว่าเป็นการลดราคา
           </p>
-        </div>
+        </div>,
+        document.body
       )}
-    </span>
+    </>
   )
 }
 
 /* ── Bar chart ราคาเริ่มประมูลต่อนัด ── */
-function PriceTierChart({ rounds, startPrice, todayStr }) {
-  const tiers = computeRoundTiers(rounds, startPrice)
+function PriceTierChart({ rounds, startPrice, todayStr, isClosed }) {
+  const tiers = computeChartRounds(rounds, startPrice, isClosed)
   if (tiers.length === 0) return null
 
   const data = tiers.map(t => ({
     name:  `นัดที่ ${t.round_no}`,
-    sub:   t.tier === 0 ? '' : `(ลดราคา ${t.tier * 10}%)`,
+    sub:   t.tier === 0 ? '' : `(ลด ${t.tier * 10}%)`,
     price: t.price,
-    dateLabel: fmtDate(t.bid_date),
+    dateLabel: fmtDateShort(t.bid_date),
     tier: t.tier,
-    // แท่งปัจจุบัน/นัดถัดไปที่รอจริง (ยังไม่รู้ผล + วันยังไม่ผ่าน) ให้กระพริบ
-    // เหมือนกับ .bid-round.upcoming ในกล่อง "นัดประมูล"
-    isBlinking: t.isUnresolved && t.bid_date >= todayStr,
+    isProjected: t.isProjected,
+    // กระพริบเฉพาะ "นัดถัดไปที่ใกล้ที่สุด" ที่เป็นข้อมูลจริง (ไม่ใช่โปรเจกชัน)
+    // และวันยังไม่ผ่าน — ไม่ใช่ทุกแท่งที่ยังไม่รู้ผล
+    isBlinking: !isClosed && !t.isProjected && t.isUnresolved && t.bid_date && t.bid_date >= todayStr,
   }))
 
   return (
@@ -133,9 +221,11 @@ function PriceTierChart({ rounds, startPrice, todayStr }) {
                     {data[index].sub}
                   </text>
                 )}
-                <text dy={42} textAnchor="middle" className="price-tier-round-label" opacity={0.7}>
-                  {data[index].dateLabel}
-                </text>
+                {data[index].dateLabel && (
+                  <text dy={42} textAnchor="middle" className="price-tier-round-label" opacity={0.7}>
+                    {data[index].dateLabel}
+                  </text>
+                )}
               </g>
             )}
             height={56}
@@ -148,12 +238,12 @@ function PriceTierChart({ rounds, startPrice, todayStr }) {
               dataKey="price"
               position="top"
               className="price-tier-bar-label"
-              formatter={(v) => fmtPriceFull(v)}
+              formatter={(v) => fmtCompactPrice(v)}
             />
             {data.map((d, i) => (
               <Cell
                 key={i}
-                fill={TIER_COLORS[d.tier]}
+                fill={isClosed || d.isProjected ? GREY : TIER_COLORS[d.tier]}
                 className={d.isBlinking ? 'blink-slow' : ''}
               />
             ))}
@@ -460,7 +550,9 @@ export default function DetailPage() {
                   </div>
                   <div className="dl">
                     <dt>จำเลย</dt>
-                    <dd>{asset.person2 || '—'}</dd>
+                    <dd style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>
+                      ตรวจสอบได้จากทรัพย์ประกาศขายทอดตลาดกรมบังคับคดี
+                    </dd>
                   </div>
                   <div className="dl">
                     <dt>เจ้าของกรรมสิทธิ์</dt>
@@ -603,7 +695,7 @@ export default function DetailPage() {
                       {fmtPriceFull(startPrice)}
                     </span>
                   </div>
-                  <PriceTierChart rounds={rounds} startPrice={startPrice} todayStr={todayStr} />
+                  <PriceTierChart rounds={rounds} startPrice={startPrice} todayStr={todayStr} isClosed={asset.is_closed} />
                 </div>
 
                 {/* ── กรอบ 2: ราคาประเมินทั้ง 4 แหล่ง (เรียง assetprice2→5) ── */}
@@ -683,7 +775,16 @@ export default function DetailPage() {
               <div className="panel-body">
                 {rounds.length === 0
                   ? <div style={{ color: 'var(--text-3)', fontSize: '0.875rem' }}>ไม่มีข้อมูลนัดประมูล</div>
-                  : (
+                  : (() => {
+                    // หา "นัดถัดไปที่ใกล้ที่สุด" นัดเดียว (code='0' + วันยังไม่ผ่าน)
+                    // ให้กระพริบแค่นัดนี้นัดเดียว — เดิมกระพริบทุกนัดที่ยังไม่ถึง
+                    // คิว เพราะ LED ประกาศวันของทุกนัดไว้ล่วงหน้าเป็น code='0'
+                    // เหมือนกันหมดจนกว่าจะถึงวันจริง ทำให้ดูเหมือนกระพริบทั้งชุด
+                    const nextUpcomingRoundNo = rounds.find(
+                      r => r.issale_code === '0' && r.bid_date >= todayStr
+                    )?.round_no ?? null
+
+                    return (
                     <div className="bid-rounds">
                       {rounds.map(r => {
                         // นัดที่ code='0' ต้องเช็ค bid_date ประกอบด้วย ไม่ใช่ดู
@@ -706,9 +807,10 @@ export default function DetailPage() {
                         }
 
                         const isUpcoming = isPending0 && !isPastDue
+                        const isNextRound = r.round_no === nextUpcomingRoundNo
                         return (
                           <div key={r.round_no}
-                            className={`bid-round${isUpcoming ? ' upcoming blink-slow' : ''}`}>
+                            className={`bid-round${isUpcoming ? ' upcoming' : ''}${isNextRound ? ' blink-slow' : ''}`}>
                             <div className="bid-round-num">{r.round_no}</div>
                             <div className="bid-date">{fmtDate(r.bid_date)}</div>
                             {/* ลบ asset_price ออก — ราคาอยู่ในช่อง "วิเคราะห์ราคา" แล้ว */}
@@ -717,7 +819,8 @@ export default function DetailPage() {
                         )
                       })}
                     </div>
-                  )
+                    )
+                  })()
                 }
 
                 {(asset.sale_location1 || asset.sale_time1 || asset.tel) && (
