@@ -6,8 +6,10 @@ import FilterChips from '../components/FilterChips.jsx'
 import SearchFilters from '../components/SearchFilters.jsx'
 import PropertyCard from '../components/PropertyCard.jsx'
 import LeafletMap from '../components/LeafletMap.jsx'
+import Pagination from '../components/Pagination.jsx'
+import ResultsToolbar, { PAGE_SIZE_OPTIONS } from '../components/ResultsToolbar.jsx'
 
-const DEFAULT_PAGE_SIZE = 20
+const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[0]   // 20
 
 const EMPTY = {
   city: '', led_province_id: '', ampur: '', district_id: '', tumbol: '',
@@ -15,25 +17,24 @@ const EMPTY = {
   status: 'all', sort: 'ischeck_date.desc', q: '',
 }
 
-/* ── Icons ── */
-const IconGrid = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-    <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
-  </svg>
-)
-const IconList = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/>
-    <line x1="3" y1="18" x2="21" y2="18"/>
-  </svg>
-)
-const IconMapCards = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6"/>
-    <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
-  </svg>
-)
+const FILTER_KEYS = [
+  'city', 'led_province_id', 'ampur', 'tumbol',
+  'asset_type_id', 'price_min', 'price_max', 'status', 'sort', 'q',
+]
+
+function readStateFromParams(params) {
+  const filters = { ...EMPTY }
+  for (const k of FILTER_KEYS) {
+    const v = params.get(k)
+    if (v != null) filters[k] = v
+  }
+  const page     = Math.max(1, parseInt(params.get('page') || '1', 10) || 1)
+  const pageSize = PAGE_SIZE_OPTIONS.includes(Number(params.get('pageSize')))
+    ? Number(params.get('pageSize')) : DEFAULT_PAGE_SIZE
+  const viewMode = ['grid', 'list', 'map'].includes(params.get('view'))
+    ? params.get('view') : 'grid'
+  return { filters, page, pageSize, viewMode }
+}
 
 async function fetchTodayIds() {
   const today = new Date().toISOString().slice(0, 10)
@@ -99,19 +100,6 @@ async function fetchMapPts(f, todayIds = []) {
   return data || []
 }
 
-function pageBtns(cur, total) {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const s = new Set([1, total, cur, cur - 1, cur + 1])
-  const sorted = [...s].filter(n => n >= 1 && n <= total).sort((a, b) => a - b)
-  const out = []
-  sorted.forEach((n, i) => {
-    if (i > 0 && n - sorted[i - 1] > 1) out.push('…')
-    out.push(n)
-  })
-  return out
-}
-
-const PAGE_SIZE_OPTIONS = [10, 20, 30, 50]
 const SORT_OPTIONS = [
   { value: 'ischeck_date.desc', label: 'วันที่ประกาศใหม่สุด' },
   { value: 'assetprice3.asc',   label: 'ราคาต่ำสุด' },
@@ -123,24 +111,38 @@ const SORT_OPTIONS = [
 ]
 
 export default function SearchPage() {
-  const [searchParams] = useSearchParams()
-  const [filters, setFilters]       = useState({ ...EMPTY, q: searchParams.get('q') || '' })
-  const [pending, setPending]       = useState({ ...EMPTY, q: searchParams.get('q') || '' })
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const initial = useMemo(() => readStateFromParams(searchParams), []) // eslint-disable-line
+
+  const [filters, setFilters]       = useState(initial.filters)
+  const [pending, setPending]       = useState(initial.filters)
   const [items, setItems]           = useState([])
   const [mapPts, setMapPts]         = useState([])
   const [total, setTotal]           = useState(0)
-  const [page, setPage]             = useState(1)
-  const [pageSize, setPageSize]     = useState(DEFAULT_PAGE_SIZE)
+  const [page, setPage]             = useState(initial.page)
+  const [pageSize, setPageSize]     = useState(initial.pageSize)
   const [loading, setLoading]       = useState(false)
   const [initDone, setInitDone]     = useState(false)
   const [error, setError]           = useState(null)
   const [hoverId, setHoverId]       = useState(null)
   const [selId, setSelId]           = useState(null)
   const [activeChip, setActiveChip] = useState(null)
-  const [viewMode, setViewMode]     = useState('grid')  // 'grid' | 'list' | 'map'
+  const [viewMode, setViewMode]     = useState(initial.viewMode)
   const [todayIds, setTodayIds]     = useState([])
 
   const coordSet = useMemo(() => new Set(mapPts.map(p => p.id)), [mapPts])
+
+  const syncUrl = useCallback((f, p, ps, vm) => {
+    const params = new URLSearchParams()
+    for (const k of FILTER_KEYS) {
+      if (f[k] && f[k] !== EMPTY[k]) params.set(k, f[k])
+    }
+    if (p > 1) params.set('page', String(p))
+    if (ps !== DEFAULT_PAGE_SIZE) params.set('pageSize', String(ps))
+    if (vm !== 'grid') params.set('view', vm)
+    setSearchParams(params, { replace: true })
+  }, [setSearchParams])
 
   const load = useCallback(async (f, p = 1, ps = DEFAULT_PAGE_SIZE, tIds = todayIds) => {
     setLoading(true); setError(null)
@@ -166,60 +168,48 @@ export default function SearchPage() {
     }
   }, [todayIds])
 
-  useEffect(() => { load(filters, 1, pageSize) }, []) // eslint-disable-line
-
-  useEffect(() => {
-    const q = searchParams.get('q') || ''
-    if (!q) return
-    const f = { ...EMPTY, q }
-    setFilters(f); setPending(f); setPage(1); load(f, 1, pageSize)
-  }, [searchParams.get('q')]) // eslint-disable-line
+  useEffect(() => { load(initial.filters, initial.page, initial.pageSize) }, []) // eslint-disable-line
 
   const handleApply = () => {
     const f = { ...pending }; setFilters(f); setPage(1); load(f, 1, pageSize)
+    syncUrl(f, 1, pageSize, viewMode)
   }
   const handleReset = () => {
     setActiveChip(null); setTodayIds([])
     setPending(EMPTY); setFilters(EMPTY); setPage(1); load(EMPTY, 1, pageSize, [])
+    syncUrl(EMPTY, 1, pageSize, viewMode)
   }
   const handleSort = (sort) => {
     const f = { ...filters, sort }; setFilters(f); setPending(f); setPage(1); load(f, 1, pageSize)
+    syncUrl(f, 1, pageSize, viewMode)
   }
   const handlePageSize = (ps) => {
     setPageSize(ps); setPage(1); load(filters, 1, ps)
+    syncUrl(filters, 1, ps, viewMode)
   }
   const handlePage = (p) => {
     setPage(p); load(filters, p, pageSize)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    syncUrl(filters, p, pageSize, viewMode)
+  }
+  const handleViewMode = (vm) => {
+    setViewMode(vm)
+    syncUrl(filters, page, pageSize, vm)
   }
   const handleChip = (chip) => {
     if (!chip) {
       setActiveChip(null); setPending(EMPTY); setFilters(EMPTY)
       setPage(1); load(EMPTY, 1, pageSize, [])
+      syncUrl(EMPTY, 1, pageSize, viewMode)
     } else {
       setActiveChip(chip.id)
       const f = { ...EMPTY, ...chip.filter }
       setPending(f); setFilters(f); setPage(1); load(f, 1, pageSize)
+      syncUrl(f, 1, pageSize, viewMode)
     }
   }
 
   const totalPages = Math.ceil(total / pageSize)
 
-  /* ── Pagination ── */
-  const Pagination = () => !initDone || loading || totalPages <= 1 ? null : (
-    <div className="pagination" style={{ padding:'20px 0' }}>
-      <button className="pg-btn" onClick={() => handlePage(page - 1)} disabled={page === 1}>←</button>
-      {pageBtns(page, totalPages).map((n, i) =>
-        n === '…'
-          ? <span key={`e${i}`} style={{ padding:'5px 4px', color:'var(--text-3)' }}>…</span>
-          : <button key={n} className={`pg-btn${n === page ? ' active' : ''}`}
-              onClick={() => handlePage(n)}>{n}</button>
-      )}
-      <button className="pg-btn" onClick={() => handlePage(page + 1)} disabled={page === totalPages}>→</button>
-    </div>
-  )
-
-  /* ── Empty / Error states ── */
   const StateBox = () => {
     if (error) return (
       <div className="state-box">
@@ -249,21 +239,18 @@ export default function SearchPage() {
   return (
     <div className="search-page-new">
 
-      {/* Hero Stats */}
       <div style={{ background:'var(--surface)', borderBottom:'1px solid var(--border)' }}>
         <div style={{ maxWidth:1400, margin:'0 auto', padding:'0 20px' }}>
           <HeroStats />
         </div>
       </div>
 
-      {/* Filter chips */}
       <div style={{ background:'var(--surface)', borderBottom:'1px solid var(--border)' }}>
         <div style={{ maxWidth:1400, margin:'0 auto', padding:'0 20px' }}>
           <FilterChips activeChip={activeChip} onChip={handleChip} />
         </div>
       </div>
 
-      {/* Sticky top bar: filter + results bar */}
       <div className="search-top-bar">
         <div className="search-top-bar-inner">
           <SearchFilters
@@ -273,7 +260,6 @@ export default function SearchPage() {
             onReset={handleReset}
           />
 
-          {/* Results bar */}
           <div className="results-bar-new">
             <div className="results-bar-left">
               <div className="results-count">
@@ -284,48 +270,19 @@ export default function SearchPage() {
                 )}
               </div>
             </div>
-            <div className="results-bar-right">
-              {/* Page size */}
-              <select className="sort-select" value={pageSize}
-                onChange={e => handlePageSize(Number(e.target.value))}>
-                {PAGE_SIZE_OPTIONS.map(n => (
-                  <option key={n} value={n}>{n}/หน้า</option>
-                ))}
-              </select>
-              {/* Sort */}
-              <select className="sort-select" value={filters.sort}
-                onChange={e => handleSort(e.target.value)}>
-                {SORT_OPTIONS.map(s => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-              {/* View toggle */}
-              <div className="view-toggle">
-                <button className={`view-btn${viewMode==='grid'?' active':''}`}
-                  onClick={() => setViewMode('grid')} title="Grid">
-                  <IconGrid/>
-                </button>
-                <button className={`view-btn${viewMode==='list'?' active':''}`}
-                  onClick={() => setViewMode('list')} title="List">
-                  <IconList/>
-                </button>
-                <button className={`view-btn${viewMode==='map'?' active':''}`}
-                  onClick={() => setViewMode('map')} title="Map + Cards">
-                  <IconMapCards/>
-                </button>
-              </div>
-            </div>
+            <ResultsToolbar
+              pageSize={pageSize} onPageSize={handlePageSize}
+              sort={filters.sort} sortOptions={SORT_OPTIONS} onSort={handleSort}
+              viewMode={viewMode} onViewMode={handleViewMode}
+            />
           </div>
         </div>
       </div>
 
-      {/* Content */}
       <div style={{ maxWidth:1400, margin:'0 auto', padding:'0 20px 40px' }}>
 
-        {/* ── MAP+CARDS view ── */}
         {viewMode === 'map' && (
           <div className="map-cards-layout">
-            {/* Map sticky บนเต็มความกว้าง ~45vh */}
             <div className="map-sticky-container" style={{ marginTop:16 }}>
               <LeafletMap
                 properties={mapPts}
@@ -336,7 +293,6 @@ export default function SearchPage() {
 
             <StateBox />
 
-            {/* Cards ล่าง 4 คอลัมน์ */}
             {initDone && !error && items.length > 0 && (
               <>
                 <div className="cards-grid">
@@ -350,13 +306,12 @@ export default function SearchPage() {
                     />
                   ))}
                 </div>
-                <Pagination />
+                <Pagination page={page} totalPages={totalPages} onPageChange={handlePage} loading={loading || !initDone} />
               </>
             )}
           </div>
         )}
 
-        {/* ── GRID view ── */}
         {viewMode === 'grid' && (
           <>
             <StateBox />
@@ -373,13 +328,12 @@ export default function SearchPage() {
                     />
                   ))}
                 </div>
-                <Pagination />
+                <Pagination page={page} totalPages={totalPages} onPageChange={handlePage} loading={loading || !initDone} />
               </>
             )}
           </>
         )}
 
-        {/* ── LIST view ── */}
         {viewMode === 'list' && (
           <>
             <StateBox />
@@ -396,7 +350,7 @@ export default function SearchPage() {
                     />
                   ))}
                 </div>
-                <Pagination />
+                <Pagination page={page} totalPages={totalPages} onPageChange={handlePage} loading={loading || !initDone} />
               </>
             )}
           </>

@@ -193,6 +193,7 @@ function PriceTierChart({ rounds, startPrice, todayStr, isClosed }) {
     name:  `นัดที่ ${t.round_no}`,
     sub:   t.tier === 0 ? '' : `(ลด ${t.tier * 10}%)`,
     price: t.price,
+    line1: t.tier === 0 ? `นัด ${t.round_no}` : `นัด ${t.round_no} · -${t.tier * 10}%`,
     dateLabel: fmtDateShort(t.bid_date),
     tier: t.tier,
     isProjected: t.isProjected,
@@ -201,55 +202,61 @@ function PriceTierChart({ rounds, startPrice, todayStr, isClosed }) {
     isBlinking: !isClosed && !t.isProjected && t.isUnresolved && t.bid_date && t.bid_date >= todayStr,
   }))
 
+  // ทรัพย์ที่ปิดแล้วอาจมีได้ถึง 8 แท่ง — บีบให้พอดี sidebar แคบๆ เสมอทำให้
+  // label ล้น/ทับกัน จึงให้ scroll แนวนอนได้แทน กำหนดความกว้างขั้นต่ำต่อแท่ง
+  const MIN_BAR_WIDTH = 76
+  const needsScroll = data.length > 4
+  const chartWidth  = Math.max(data.length * MIN_BAR_WIDTH, 300)
+
   return (
     <div className="price-tier-chart-wrap">
       <div className="price-tier-chart-hd">
         <span>ราคาเริ่มต้นของแต่ละนัด</span>
         <PriceRuleInfoPopover />
       </div>
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={data} margin={{ top: 24, right: 8, left: 8, bottom: 8 }}>
-          <XAxis
-            dataKey="name"
-            tick={({ x, y, payload, index }) => (
-              <g transform={`translate(${x},${y})`}>
-                <text dy={14} textAnchor="middle" className="price-tier-round-label">
-                  {payload.value}
-                </text>
-                {data[index].sub && (
-                  <text dy={28} textAnchor="middle" className="price-tier-round-label">
-                    {data[index].sub}
-                  </text>
+      <div style={needsScroll ? { overflowX: 'auto' } : undefined}>
+        <div style={{ width: needsScroll ? chartWidth : '100%', minWidth: '100%' }}>
+          <ResponsiveContainer width="100%" height={190}>
+            <BarChart data={data} margin={{ top: 24, right: 8, left: 8, bottom: 8 }}>
+              <XAxis
+                dataKey="name"
+                interval={0}
+                tick={({ x, y, payload, index }) => (
+                  <g transform={`translate(${x},${y})`}>
+                    <text dy={14} textAnchor="middle" className="price-tier-round-label">
+                      {data[index].line1}
+                    </text>
+                    {data[index].dateLabel && (
+                      <text dy={28} textAnchor="middle" className="price-tier-round-label" opacity={0.7}>
+                        {data[index].dateLabel}
+                      </text>
+                    )}
+                  </g>
                 )}
-                {data[index].dateLabel && (
-                  <text dy={42} textAnchor="middle" className="price-tier-round-label" opacity={0.7}>
-                    {data[index].dateLabel}
-                  </text>
-                )}
-              </g>
-            )}
-            height={56}
-            axisLine={{ stroke: 'var(--border)' }}
-            tickLine={false}
-          />
-          <YAxis hide />
-          <Bar dataKey="price" radius={[6, 6, 0, 0]} maxBarSize={64}>
-            <LabelList
-              dataKey="price"
-              position="top"
-              className="price-tier-bar-label"
-              formatter={(v) => fmtCompactPrice(v)}
-            />
-            {data.map((d, i) => (
-              <Cell
-                key={i}
-                fill={isClosed || d.isProjected ? GREY : TIER_COLORS[d.tier]}
-                className={d.isBlinking ? 'blink-slow' : ''}
+                height={44}
+                axisLine={{ stroke: 'var(--border)' }}
+                tickLine={false}
               />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+              <YAxis hide />
+              <Bar dataKey="price" radius={[6, 6, 0, 0]} maxBarSize={64}>
+                <LabelList
+                  dataKey="price"
+                  position="top"
+                  className="price-tier-bar-label"
+                  formatter={(v) => fmtCompactPrice(v)}
+                />
+                {data.map((d, i) => (
+                  <Cell
+                    key={i}
+                    fill={isClosed || d.isProjected ? GREY : TIER_COLORS[d.tier]}
+                    className={d.isBlinking ? 'blink-slow' : ''}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
     </div>
   )
 }
@@ -388,7 +395,7 @@ export default function DetailPage() {
   if (error) return (
     <div className="state-box" style={{ paddingTop: 80 }}>
       <p>เกิดข้อผิดพลาด: {error}</p>
-      <Link to="/" className="detail-back">← กลับค้นหา</Link>
+      <button onClick={() => navigate(-1)} className="detail-back" style={{ background:'none', border:'none', cursor:'pointer' }}>← กลับค้นหา</button>
     </div>
   )
   if (!asset) return null
@@ -421,7 +428,8 @@ export default function DetailPage() {
       {lightbox && <Lightbox src={lightbox} onClose={closeLightbox} />}
 
       <div className="detail-wrap">
-        <Link to="/" className="detail-back">{BACK} กลับผลการค้นหา</Link>
+        <button onClick={() => navigate(-1)} className="detail-back"
+          style={{ background:'none', border:'none', cursor:'pointer' }}>{BACK} กลับผลการค้นหา</button>
 
         <div className="detail-grid">
 

@@ -7,6 +7,99 @@
 
 ---
 
+## 2026.09.03-1
+
+### Added — URL state: filter/หน้า/มุมมองไม่หายเมื่อกด back จากหน้า detail
+
+พบว่า `SearchPage.jsx` sync แค่ `q` เข้า URL query string ส่วน filter อื่น
+(จังหวัด/อำเภอ/ตำบล/ประเภท/ราคา/สถานะ/เรียงลำดับ), หน้าปัจจุบัน, จำนวน
+รายการต่อหน้า, และโหมดแสดงผล (grid/list/map) ไม่เคยถูกเขียนลง URL เลย —
+กด back จากหน้า detail จึงเจอ default ว่างเปล่าเสมอ ไม่ใช่ state ที่เพิ่ง
+ตั้งไว้ก่อนหน้า
+
+- `[SearchPage.jsx]` เขียนใหม่ทั้งไฟล์ — ทุก filter/`page`/`pageSize`/`view`
+  sync เข้า query string ผ่าน `setSearchParams(params, {replace:true})`
+  ทุกครั้งที่เปลี่ยน (ใช้ `replace` ไม่ใช่ `push` กันไม่ให้ history รกด้วย
+  entry ย่อยทุกครั้งที่พิมพ์ filter — แค่ entry ปัจจุบันต้องตรงกับ state
+  จริงตอนคลิกออกจากหน้านี้)
+  - `readStateFromParams()` อ่าน filter/page/pageSize/view ทั้งหมดจาก URL
+    ครั้งเดียวตอน mount (lazy initializer) — ทำให้ตอน browser back กลับมา
+    SearchPage remount ใหม่และอ่าน state ตรงจาก URL ที่ history เก็บไว้ได้
+    ถูกต้องทันที ไม่ต้องมี logic พิเศษเพิ่มเติมฝั่ง React
+  - ตัดสินใจใช้ **query string** (`?page=2&city=...&view=list`) แทน path
+    literal แบบ `/page2` เพราะรองรับ filter หลายตัวรวมกันได้ธรรมชาติกว่า
+    (ตรงกับที่ `q` ทำอยู่แล้วเดิม) ไม่ต้องเพิ่ม route ใหม่ ผลลัพธ์ตรงตาม
+    ที่ต้องการทุกประการ (URL ระบุ state ชัดเจน, แชร์/bookmark ได้)
+- `[DetailPage.jsx]` เปลี่ยนปุ่ม "กลับผลการค้นหา" ทั้ง 2 จุด (state ปกติ +
+  state error) จาก `<Link to="/">` แบบ hardcode เป็น `navigate(-1)` —
+  เดิมกดกี่ครั้งก็พาไปหน้าแรกสุด `/` เสมอไม่สนใจว่ามาจากไหน ตอนนี้กลับไป
+  URL ก่อนหน้าเป๊ะ (พร้อม query string ครบ) เพราะใช้ browser history จริง
+
+### Changed — Page size: เหลือแค่ 20 / 40 รายการต่อหน้า
+
+- `[ResultsToolbar.jsx]` (ไฟล์ใหม่) `PAGE_SIZE_OPTIONS = [20, 40]` (เดิม
+  `[10, 20, 30, 50]`) ใช้ร่วมกันทั้ง `SearchPage` และ `WishlistPage`
+
+### Added — หน้า Wishlist: filter + pagination + view toggle เหมือนหน้า Search
+
+พบว่า `WishlistPage.jsx` เดิมเป็น flat grid render ทุกรายการพร้อมกันหมด
+ไม่มี filter/pagination/สลับมุมมองเลย — พอมีรายการเยอะขึ้นหน้าใช้งานไม่ได้
+
+- `[WishlistPage.jsx]` เขียนใหม่ทั้งไฟล์ — filter/sort/pagination ทำงานฝั่ง
+  **client ทั้งหมด** (ไม่ query Supabase ซ้ำทุกครั้งที่เปลี่ยน filter)
+  เพราะจำนวนรายการใน wishlist ของ user คนหนึ่งมีจำกัด ไม่ใช่หลักหมื่นแบบ
+  ทั้งระบบ — fetch รายละเอียดเต็มของทุก asset ใน wishlist ครั้งเดียวตอน
+  mount แล้ว filter/sort/slice หน้าในหน่วยความจำ
+  - มี filter ครบ (จังหวัด/อำเภอ/ตำบล/ประเภท/ราคา/สถานะ), page size
+    selector (20/40), สลับมุมมอง grid/list/map เหมือนหน้า Search
+  - sync state เข้า URL query string แบบเดียวกับ `SearchPage` (pattern
+    เดียวกันทุกประการ เพื่อความสม่ำเสมอและรองรับ back-navigation เช่นกัน)
+
+### Refactor — แยก component ใช้ร่วมกันระหว่าง SearchPage และ WishlistPage
+
+ตามที่ตัดสินใจไว้ (เลือก refactor แทน copy-paste) เพื่อลดโค้ดซ้ำและกันไม่ให้
+พฤติกรรม pagination/toolbar เพี้ยนกันระหว่าง 2 หน้าในอนาคต:
+
+- `[components/Pagination.jsx]` (ไฟล์ใหม่) — extract จาก inline pagination
+  เดิมใน `SearchPage.jsx` (ปุ่มเลขหน้า + `←`/`→`, auto-scroll ขึ้นบนตอน
+  เปลี่ยนหน้า, ซ่อนตัวเองถ้ามีแค่หน้าเดียว)
+- `[components/ResultsToolbar.jsx]` (ไฟล์ใหม่) — extract page size selector
+  + sort dropdown (optional — ไม่ใส่ `sortOptions` prop ก็ไม่ render) + ปุ่ม
+  สลับมุมมอง grid/list/map พร้อม export `PAGE_SIZE_OPTIONS` กลางให้ทั้งสอง
+  หน้า import ไปใช้ค่าเดียวกันเสมอ
+- `[lib/pagination.js]` (ไฟล์ใหม่) — extract `pageBtns()` (คำนวณเลขหน้าที่
+  จะโชว์ พร้อม "…" คั่นถ้าห่างกันเกิน) ออกมาเป็น pure function แยกต่างหาก
+- ไม่ต้องเพิ่ม CSS class ใหม่เลย — component ที่ extract ออกมาใช้
+  `.pagination`/`.pg-btn`/`.sort-select`/`.view-toggle`/`.results-bar-*`
+  ที่มีอยู่แล้วในระบบครบทุกตัว
+
+### Fixed — Price Tier Chart: label ไม่ครบทุกแท่ง + ตำแหน่งไม่ตรง
+
+- `[DetailPage.jsx]` เพิ่ม `interval={0}` บน `<XAxis>` — เดิม Recharts
+  auto-skip tick label เวลาพื้นที่แคบ (6-8 แท่งใน sidebar แคบๆ) ทำให้บาง
+  แท่งไม่มี label โผล่มาเลย และอาจทำให้ label ของแท่งที่เหลือแสดงเนื้อหา
+  ไม่ตรงตำแหน่งตามไปด้วย
+- `[DetailPage.jsx]` ย่อ label ใต้แท่งจาก 3 บรรทัด (นัดที่ N / (ลด X%) /
+  วันที่) เหลือ **2 บรรทัด** — รวมเลขนัดกับเปอร์เซ็นต์ลดเป็นบรรทัดเดียว
+  `"นัด N · -X%"` แล้ววันที่แบบย่อ (`DD/MM/YY`) อยู่บรรทัดล่าง ประหยัดพื้นที่
+  แนวตั้งและแนวนอนพร้อมกัน
+- `[DetailPage.jsx]` เพิ่ม **scroll แนวนอน** อัตโนมัติเมื่อมีมากกว่า 4 แท่ง
+  (ทรัพย์ที่ปิดประมูลแล้วอาจมีได้ถึง 8 แท่ง) — กำหนดความกว้างขั้นต่ำ 76px
+  ต่อแท่ง แทนที่จะบีบทุกแท่งให้พอดี sidebar แคบๆ เสมอจนอ่านไม่ออก ทรัพย์ที่
+  มี ≤4 แท่ง (กรณีทั่วไป) ยังคงแสดงเต็มความกว้าง ไม่มี scroll bar โผล่มา
+  รบกวนสายตา
+
+### Testing
+
+- `npm run build` ผ่านไม่มี syntax/import error
+- ยังไม่ได้ทดสอบ end-to-end กับ Supabase project จริง — แนะนำทดสอบก่อน
+  deploy จริง: ตั้ง filter + ไปหน้า 2 → เปิดดูทรัพย์ → กด "กลับผลการค้นหา"
+  ต้องเห็น filter/หน้า 2 เหมือนเดิม, ทดสอบหน้า Wishlist ที่มีทรัพย์เกิน 20
+  รายการว่า filter/pagination/view toggle ทำงานถูกต้อง, เปิดทรัพย์ที่มี
+  6-8 นัด (ทั้งเปิด/ปิดประมูล) เช็คว่า label กราฟครบทุกแท่งไม่ทับกัน
+
+---
+
 ## 2026.08.29-1
 
 ### Changed — Price Tier Chart: แสดง 4 แท่งเสมอ (โปรเจกชันล่วงหน้า)
